@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"log"
 	"os"
 
 	"github.com/hashicorp/go-hclog"
@@ -19,8 +18,6 @@ const (
 var (
 	appName      string
 	appNamespace string
-
-	clientset *kubernetes.Clientset
 
 	logger = hclog.New(&hclog.LoggerOptions{
 		Name: "argocd-strongbox-plugin",
@@ -52,20 +49,6 @@ var commonFlags = []cli.Flag{
 	},
 }
 
-func init() {
-	// creates the in-cluster config
-	config, err := rest.InClusterConfig()
-	if err != nil {
-		log.Fatalf("unable to create in-cluster config err:%s", err)
-	}
-
-	// creates the clientset
-	clientset, err = kubernetes.NewForConfig(config)
-	if err != nil {
-		log.Fatalf("unable to create clientset err:%s", err)
-	}
-}
-
 func main() {
 	app := &cli.App{
 		Commands: []*cli.Command{
@@ -90,21 +73,17 @@ func main() {
 					},
 				}...),
 				Action: func(c *cli.Context) error {
+					kubeClient, err := getKubeClient()
+					if err != nil {
+						return fmt.Errorf("unable to create kube clienset err:%s", err)
+					}
+
 					cwd, err := os.Getwd()
 					if err != nil {
 						return fmt.Errorf("unable to get current working dir err:%s", err)
 					}
 
-					found, err := hasEncryptedFiles(cwd)
-					if err != nil {
-						return fmt.Errorf("unable to check if app source folder has encrypted files err:%s", err)
-					}
-
-					if !found {
-						return nil
-					}
-
-					return ensureDecryption(c.Context, cwd, c.String("app-strongbox-secret-name"), c.String("app-strongbox-keyring-key"))
+					return ensureDecryption(c.Context, kubeClient, cwd, c.String("app-strongbox-secret-name"), c.String("app-strongbox-keyring-key"))
 				},
 			},
 
@@ -135,4 +114,15 @@ func main() {
 		logger.Error("app terminated", "err", err)
 		os.Exit(1)
 	}
+}
+
+func getKubeClient() (*kubernetes.Clientset, error) {
+	// creates the in-cluster config
+	config, err := rest.InClusterConfig()
+	if err != nil {
+		return nil, fmt.Errorf("unable to create in-cluster config err:%s", err)
+	}
+
+	// creates the clientset
+	return kubernetes.NewForConfig(config)
 }

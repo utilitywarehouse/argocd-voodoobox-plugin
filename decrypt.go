@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 
 	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
 )
 
 var (
@@ -19,8 +20,18 @@ var (
 	errEncryptedFileFound = errors.New("encrypted file found")
 )
 
-func ensureDecryption(ctx context.Context, cwd, secretName, secretKey string) error {
-	d, err := getKeyRingData(ctx, appNamespace, secretName, secretKey)
+func ensureDecryption(ctx context.Context, kubeClient kubernetes.Interface, cwd, secretName, secretKey string) error {
+	// Check if decryption is required before checking for keyRing secrets
+	found, err := hasEncryptedFiles(cwd)
+	if err != nil {
+		return fmt.Errorf("unable to check if app source folder has encrypted files err:%s", err)
+	}
+
+	if !found {
+		return nil
+	}
+
+	d, err := getKeyRingData(ctx, kubeClient, appNamespace, secretName, secretKey)
 	if err != nil {
 		return err
 	}
@@ -45,8 +56,8 @@ func ensureDecryption(ctx context.Context, cwd, secretName, secretKey string) er
 }
 
 // getKeyRingData reads kube secret from given namespace and gets Keyring file data
-func getKeyRingData(ctx context.Context, namespace, secretName, key string) ([]byte, error) {
-	keyringSecret, err := clientset.CoreV1().Secrets(namespace).Get(ctx, secretName, metaV1.GetOptions{})
+func getKeyRingData(ctx context.Context, kubeClient kubernetes.Interface, namespace, secretName, key string) ([]byte, error) {
+	keyringSecret, err := kubeClient.CoreV1().Secrets(namespace).Get(ctx, secretName, metaV1.GetOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("unable to get secret secret:%s namespace:%s err:%s", secretName, namespace, err)
 	}
@@ -107,8 +118,7 @@ func hasEncryptedFiles(cwd string) (bool, error) {
 
 // runStrongboxDecryption will try to decrypt files in cwd using given keyRing file
 func runStrongboxDecryption(ctx context.Context, cwd, keyringPath string) error {
-	s := exec.CommandContext(ctx, "strongbox", "-keyring", keyringPath, "-decrypt", "-recursive", ".")
-	s.Dir = cwd
+	s := exec.CommandContext(ctx, "strongbox", "-keyring", keyringPath, "-decrypt", "-recursive", cwd)
 
 	stderr, err := s.CombinedOutput()
 	if err != nil {
