@@ -8,6 +8,10 @@ import (
 	"strings"
 )
 
+func ensureBuild(ctx context.Context, cwd string) (string, error) {
+	return runKustomizeBuild(ctx, cwd)
+}
+
 // runKustomizeBuild will run `kustomize build` cmd and return generated yaml or error
 func runKustomizeBuild(ctx context.Context, cwd string) (string, error) {
 	k := exec.CommandContext(ctx, "kustomize", "build", ".")

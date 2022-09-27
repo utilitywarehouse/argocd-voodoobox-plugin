@@ -98,7 +98,7 @@ func main() {
 						return fmt.Errorf("unable to get current working dir err:%s", err)
 					}
 
-					manifests, err := runKustomizeBuild(cCtx.Context, cwd)
+					manifests, err := ensureBuild(cCtx.Context, cwd)
 					if err != nil {
 						return err
 					}
