@@ -65,10 +65,10 @@ func main() {
 						Value: "argocd-strongbox-keyring",
 					},
 					&cli.StringFlag{
-						Name:    "app-strongbox-keyring-key",
-						EnvVars: []string{argocdAppEnvPrefix + "STRONGBOX_KEYRING_KEY"},
+						Name:    "app-strongbox-secret-key",
+						EnvVars: []string{argocdAppEnvPrefix + "STRONGBOX_SECRET_KEY"},
 						Usage: `set 'STRONGBOX_KEYRING_KEY' in argocd application as plugin ENV, the value should be the
-						name of the key which contains a valid strongbox keyring file`,
+						name of the secret data key which contains a valid strongbox keyring file`,
 						Value: ".strongbox_keyring",
 					},
 				}...),
@@ -83,7 +83,7 @@ func main() {
 						return fmt.Errorf("unable to get current working dir err:%s", err)
 					}
 
-					return ensureDecryption(c.Context, kubeClient, cwd, c.String("app-strongbox-secret-name"), c.String("app-strongbox-keyring-key"))
+					return ensureDecryption(c.Context, kubeClient, cwd, c.String("app-strongbox-secret-name"), c.String("app-strongbox-secret-key"))
 				},
 			},
 
