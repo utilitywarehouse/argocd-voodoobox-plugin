@@ -10,9 +10,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-
-	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes"
 )
 
 var (
@@ -20,8 +17,8 @@ var (
 	errEncryptedFileFound = errors.New("encrypted file found")
 )
 
-func ensureDecryption(ctx context.Context, kubeClient kubernetes.Interface, cwd, secretName, secretKey string) error {
-	// Check if decryption is required before checking for keyRing secrets
+func ensureDecryption(ctx context.Context, cwd string, app applicationInfo) error {
+	// Check if decryption is required before requesting keyRing secrets
 	found, err := hasEncryptedFiles(cwd)
 	if err != nil {
 		return fmt.Errorf("unable to check if app source folder has encrypted files err:%s", err)
@@ -31,7 +28,7 @@ func ensureDecryption(ctx context.Context, kubeClient kubernetes.Interface, cwd,
 		return nil
 	}
 
-	d, err := getKeyRingData(ctx, kubeClient, appNamespace, secretName, secretKey)
+	d, err := getKeyRingData(ctx, app.destinationNamespace, app.keyringSecret)
 	if err != nil {
 		return err
 	}
@@ -55,18 +52,17 @@ func ensureDecryption(ctx context.Context, kubeClient kubernetes.Interface, cwd,
 	return nil
 }
 
-// getKeyRingData reads kube secret from given namespace and gets Keyring file data
-func getKeyRingData(ctx context.Context, kubeClient kubernetes.Interface, namespace, secretName, key string) ([]byte, error) {
-	keyringSecret, err := kubeClient.CoreV1().Secrets(namespace).Get(ctx, secretName, metaV1.GetOptions{})
+func getKeyRingData(ctx context.Context, destinationNamespace string, secret secretInfo) ([]byte, error) {
+	keyringSecret, err := getSecret(ctx, destinationNamespace, secret)
 	if err != nil {
-		return nil, fmt.Errorf("unable to get secret secret:%s namespace:%s err:%s", secretName, namespace, err)
+		return nil, err
 	}
 
-	if v, ok := keyringSecret.Data[key]; ok {
+	if v, ok := keyringSecret.Data[secret.key]; ok {
 		return v, nil
 	}
 
-	return nil, fmt.Errorf("key '%s' not found secret:'%s' namespace:%s", key, secretName, namespace)
+	return nil, fmt.Errorf("key '%s' not found %s secret", secret.key, secret.name)
 }
 
 // hasEncryptedFiles will recursively check if any encrypted file

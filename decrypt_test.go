@@ -15,8 +15,9 @@ import (
 )
 
 var (
-	encryptedTestDir = "./testData/app-with-secrets-test"
-	plainTextTestDir = "./testData/app-without-secrets"
+	encryptedTestDir1 = "./testData/app-with-secrets-test1"
+	encryptedTestDir2 = "./testData/app-with-secrets-test2"
+	plainTextTestDir  = "./testData/app-without-secrets"
 )
 
 func getFileContent(t *testing.T, fileName string) []byte {
@@ -29,8 +30,15 @@ func getFileContent(t *testing.T, fileName string) []byte {
 
 func TestMain(m *testing.M) {
 	// create copy of encrypted test dir as this tests will modify files
-	cmd := exec.Command("cp", "-r", "./testData/app-with-secrets", encryptedTestDir)
+	cmd := exec.Command("cp", "-r", "./testData/app-with-secrets", encryptedTestDir1)
 	out, err := cmd.CombinedOutput()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "%v", string(out))
+		os.Exit(1)
+	}
+
+	cmd = exec.Command("cp", "-r", "./testData/app-with-secrets", encryptedTestDir2)
+	out, err = cmd.CombinedOutput()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%v", string(out))
 		os.Exit(1)
@@ -38,7 +46,8 @@ func TestMain(m *testing.M) {
 
 	code := m.Run()
 
-	os.RemoveAll(encryptedTestDir)
+	os.RemoveAll(encryptedTestDir1)
+	os.RemoveAll(encryptedTestDir2)
 
 	os.Exit(code)
 }
@@ -53,7 +62,8 @@ func Test_hasEncryptedFiles(t *testing.T) {
 		want    bool
 		wantErr bool
 	}{
-		{"encryptedTestDir", args{cwd: encryptedTestDir}, true, false},
+		{"encryptedTestDir1", args{cwd: encryptedTestDir1}, true, false},
+		{"encryptedTestDir2", args{cwd: encryptedTestDir2}, true, false},
 		{"plainTextTestDir", args{cwd: plainTextTestDir}, false, false},
 		{".github", args{cwd: ".github"}, false, false},
 	}
@@ -72,7 +82,7 @@ func Test_hasEncryptedFiles(t *testing.T) {
 }
 
 func Test_getKeyRingData(t *testing.T) {
-	kubeClient := fake.NewSimpleClientset(
+	kubeClient = fake.NewSimpleClientset(
 		&v1.Secret{
 			ObjectMeta: metaV1.ObjectMeta{
 				Name:      "argocd-strongbox-secret",
@@ -94,9 +104,8 @@ func Test_getKeyRingData(t *testing.T) {
 	)
 
 	type args struct {
-		namespace  string
-		secretName string
-		key        string
+		destinationNamespace string
+		secret               secretInfo
 	}
 	tests := []struct {
 		name    string
@@ -104,14 +113,14 @@ func Test_getKeyRingData(t *testing.T) {
 		want    []byte
 		wantErr bool
 	}{
-		{"bar", args{"bar", "argocd-strongbox-secret", ".strongbox_keyring"}, []byte("keyring-data-bar"), false},
-		{"foo-wrong-key", args{"foo", "strongbox-secret", ".strongbox_keyring"}, nil, true},
-		{"foo", args{"foo", "strongbox-secret", "randomKey"}, []byte("keyring-data-foo"), false},
-		{"missing", args{"default", "strongbox-secret", "randomKey"}, nil, true},
+		{"bar", args{"bar", secretInfo{name: "argocd-strongbox-secret", key: ".strongbox_keyring"}}, []byte("keyring-data-bar"), false},
+		{"foo-wrong-key", args{"foo", secretInfo{name: "strongbox-secret", key: ".strongbox_keyring"}}, nil, true},
+		{"foo", args{"foo", secretInfo{name: "strongbox-secret", key: "randomKey"}}, []byte("keyring-data-foo"), false},
+		{"missing", args{"default", secretInfo{name: "strongbox-secret", key: "randomKey"}}, nil, true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := getKeyRingData(context.Background(), kubeClient, tt.args.namespace, tt.args.secretName, tt.args.key)
+			got, err := getKeyRingData(context.Background(), tt.args.destinationNamespace, tt.args.secret)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("getKeyRingData() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -124,15 +133,15 @@ func Test_getKeyRingData(t *testing.T) {
 }
 
 func Test_ensureDecryption(t *testing.T) {
-	appNamespace = "foo"
+	secretAllowedNamespacesAnnotation = "argocd-strongbox.plugin.io/allowed-namespaces"
 
 	// read keyring file
-	kr, err := os.ReadFile(encryptedTestDir + "/.keyRing")
+	kr, err := os.ReadFile(encryptedTestDir1 + "/.keyRing")
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	kubeClient := fake.NewSimpleClientset(
+	kubeClient = fake.NewSimpleClientset(
 		&v1.Secret{
 			ObjectMeta: metaV1.ObjectMeta{
 				Name:      "strongbox-secret",
@@ -142,29 +151,91 @@ func Test_ensureDecryption(t *testing.T) {
 				"keyring": kr,
 			},
 		},
+		&v1.Secret{
+			ObjectMeta: metaV1.ObjectMeta{
+				Name:      "strongbox-secret",
+				Namespace: "not-baz",
+				Annotations: map[string]string{
+					"argocd-strongbox.plugin.io/allowed-namespaces": "baz,rand",
+				},
+			},
+			Data: map[string][]byte{
+				"keyring": kr,
+			},
+		},
 	)
 
-	// without-secrets doesn't have enc files so it should not look for "missing-secrets" secret
-	err = ensureDecryption(context.Background(), kubeClient, plainTextTestDir, "missing-secrets", "invalid")
+	// plainTextTestDir doesn't have enc files so it should not look for "missing-secrets" secret
+	bar := applicationInfo{
+		name:                 "bar",
+		destinationNamespace: "bar",
+		keyringSecret: secretInfo{
+			name: "missing-secrets",
+			key:  "invalid",
+		},
+	}
+	err = ensureDecryption(context.Background(), plainTextTestDir, bar)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	// app-with-secrets has enc files so it should look for secret and then decrypt content
-	err = ensureDecryption(context.Background(), kubeClient, encryptedTestDir, "strongbox-secret", "keyring")
+	// encryptedTestDir1 has enc files so it should look for secret and then decrypt content
+	// keyring secret in app's destination NS
+	foo := applicationInfo{
+		name:                 "foo",
+		destinationNamespace: "foo",
+		keyringSecret: secretInfo{
+			name: "strongbox-secret",
+			key:  "keyring",
+		},
+	}
+	err = ensureDecryption(context.Background(), encryptedTestDir1, foo)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if !bytes.Contains(getFileContent(t, encryptedTestDir+"/secrets/strongbox-keyring"), kr) {
-		t.Error(encryptedTestDir + "/secrets/strongbox-keyring should contain keyring data")
+	if !bytes.Contains(getFileContent(t, encryptedTestDir1+"/secrets/strongbox-keyring"), kr) {
+		t.Error(encryptedTestDir1 + "/secrets/strongbox-keyring should contain keyring data")
 	}
 
 	encryptedFiles := []string{
-		encryptedTestDir + "/app/secrets/env_secrets",
-		encryptedTestDir + "/app/secrets/kube_secret.yaml",
-		encryptedTestDir + "/app/secrets/s1.json",
-		encryptedTestDir + "/app/secrets/s2.yaml",
+		encryptedTestDir1 + "/app/secrets/env_secrets",
+		encryptedTestDir1 + "/app/secrets/kube_secret.yaml",
+		encryptedTestDir1 + "/app/secrets/s1.json",
+		encryptedTestDir1 + "/app/secrets/s2.yaml",
+	}
+
+	for _, f := range encryptedFiles {
+		if !bytes.Contains(getFileContent(t, f), []byte("PlainText")) {
+			t.Errorf("%s should be decrypted", f)
+		}
+	}
+
+	// encryptedTestDir2 has enc files so it should look for secret and then decrypt content
+	// keyring secret in different namespace then app's destination NS
+	baz := applicationInfo{
+		name:                 "foo",
+		destinationNamespace: "baz",
+		keyringSecret: secretInfo{
+			namespace: "not-baz",
+			name:      "strongbox-secret",
+			key:       "keyring",
+		},
+	}
+	err = ensureDecryption(context.Background(), encryptedTestDir2, baz)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if !bytes.Contains(getFileContent(t, encryptedTestDir2+"/secrets/strongbox-keyring"), kr) {
+		t.Error(encryptedTestDir2 + "/secrets/strongbox-keyring should contain keyring data")
+	}
+
+	encryptedFiles = []string{
+		encryptedTestDir2 + "/app/secrets/env_secrets",
+		encryptedTestDir2 + "/app/secrets/kube_secret.yaml",
+		encryptedTestDir2 + "/app/secrets/s1.json",
+		encryptedTestDir2 + "/app/secrets/s2.yaml",
 	}
 
 	for _, f := range encryptedFiles {

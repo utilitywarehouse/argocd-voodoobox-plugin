@@ -16,8 +16,8 @@ const (
 )
 
 var (
-	appName      string
-	appNamespace string
+	kubeClient                        kubernetes.Interface
+	secretAllowedNamespacesAnnotation string
 
 	logger = hclog.New(&hclog.LoggerOptions{
 		Name: "argocd-strongbox-plugin",
@@ -29,23 +29,33 @@ var (
 	})
 )
 
+type applicationInfo struct {
+	name                 string
+	destinationNamespace string
+	keyringSecret        secretInfo
+}
+
+type secretInfo struct {
+	namespace string
+	name      string
+	key       string
+}
+
 // following ENVs are set by argo-cd while running plugin commands
 // https://argo-cd.readthedocs.io/en/latest/user-guide/build-environment
 var commonFlags = []cli.Flag{
 	// app-name is set by argo-cd as '<namespace>_<app-name>'
 	&cli.StringFlag{
-		Name:        "app-name",
-		EnvVars:     []string{"ARGOCD_APP_NAME"},
-		Usage:       "name of application",
-		Required:    true,
-		Destination: &appName,
+		Name:     "app-name",
+		EnvVars:  []string{"ARGOCD_APP_NAME"},
+		Usage:    "name of application ENV set by argocd",
+		Required: true,
 	},
 	&cli.StringFlag{
-		Name:        "app-namespace",
-		EnvVars:     []string{"ARGOCD_APP_NAMESPACE"},
-		Usage:       "destination application namespace.",
-		Required:    true,
-		Destination: &appNamespace,
+		Name:     "app-namespace",
+		EnvVars:  []string{"ARGOCD_APP_NAMESPACE"},
+		Usage:    "destination application namespace ENV set by argocd",
+		Required: true,
 	},
 }
 
@@ -58,22 +68,46 @@ func main() {
 				Usage: "command to decrypt all encrypted files under application source directory",
 				Flags: append(commonFlags, []cli.Flag{
 					&cli.StringFlag{
+						Name:    "app-strongbox-secret-namespace",
+						EnvVars: []string{argocdAppEnvPrefix + "STRONGBOX_SECRET_NAMESPACE"},
+						Usage: `set 'STRONGBOX_SECRET_NAMESPACE' in argocd application as plugin ENV. the value should be the
+	name of a namespace where secret resource containing strongbox keyring is located`,
+					},
+					&cli.StringFlag{
 						Name:    "app-strongbox-secret-name",
 						EnvVars: []string{argocdAppEnvPrefix + "STRONGBOX_SECRET_NAME"},
 						Usage: `set 'STRONGBOX_SECRET_NAME' in argocd application as plugin ENV. the value should be the
-						name of a secret resource containing strongbox keyring used to encrypt app secrets`,
+	name of a secret resource containing strongbox keyring used to encrypt app secrets`,
 						Value: "argocd-strongbox-keyring",
 					},
 					&cli.StringFlag{
 						Name:    "app-strongbox-secret-key",
 						EnvVars: []string{argocdAppEnvPrefix + "STRONGBOX_SECRET_KEY"},
 						Usage: `set 'STRONGBOX_KEYRING_KEY' in argocd application as plugin ENV, the value should be the
-						name of the secret data key which contains a valid strongbox keyring file`,
+	name of the secret data key which contains a valid strongbox keyring file`,
 						Value: ".strongbox_keyring",
+					},
+					&cli.StringFlag{
+						Name: "secret-allowed-namespaces-annotation",
+						Usage: `when shared secret is used this value is the annotation key to look for in secret 
+	to get comma-separated list of all the namespaces that are allowed to use it`,
+						Destination: &secretAllowedNamespacesAnnotation,
+						Value:       "argocd-strongbox.plugin.io/allowed-namespaces",
 					},
 				}...),
 				Action: func(c *cli.Context) error {
-					kubeClient, err := getKubeClient()
+					var err error
+					app := applicationInfo{
+						name:                 c.String("app-name"),
+						destinationNamespace: c.String("app-namespace"),
+					}
+					app.keyringSecret = secretInfo{
+						namespace: c.String("app-strongbox-secret-namespace"),
+						name:      c.String("app-strongbox-secret-name"),
+						key:       c.String("app-strongbox-secret-key"),
+					}
+
+					kubeClient, err = getKubeClient()
 					if err != nil {
 						return fmt.Errorf("unable to create kube clienset err:%s", err)
 					}
@@ -83,7 +117,7 @@ func main() {
 						return fmt.Errorf("unable to get current working dir err:%s", err)
 					}
 
-					return ensureDecryption(c.Context, kubeClient, cwd, c.String("app-strongbox-secret-name"), c.String("app-strongbox-secret-key"))
+					return ensureDecryption(c.Context, cwd, app)
 				},
 			},
 

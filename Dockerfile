@@ -1,7 +1,7 @@
 # build stage
 FROM golang:1-alpine AS build
 
-RUN apk --no-cache add curl openssh-client
+RUN apk --no-cache add git gcc make musl-dev curl bash openssh-client
 
 ENV \
   STRONGBOX_VERSION=master \
@@ -17,7 +17,9 @@ ADD . /argocd-strongbox-plugin
 
 WORKDIR /argocd-strongbox-plugin
 
-RUN go build -o /argocd-strongbox-plugin
+
+RUN go test -v ./... \
+    && go build -o /argocd-strongbox-plugin .
 
 # final stage
 FROM alpine:latest

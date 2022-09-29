@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"strings"
 	"testing"
 )
@@ -13,7 +12,6 @@ func Test_ensureBuild(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	fmt.Println(manifests)
 
 	if !(strings.Contains(manifests, "kind: Deployment") &&
 		strings.Contains(manifests, "name: app-bar-nginx") &&
