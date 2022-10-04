@@ -1,0 +1,22 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-bar-nginx
+  namespace: lab-bar
+  labels:
+    app: app-bar-nginx
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: app-bar-nginx
+  template:
+    metadata:
+      labels:
+        app: app-bar-nginx
+    spec:
+      containers:
+        - name: app-bar-nginx
+          image: nginx:stable
+          ports:
+            - containerPort: 80

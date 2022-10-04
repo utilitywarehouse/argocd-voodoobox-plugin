@@ -1,0 +1,41 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-bar-nginx
+  namespace: lab-bar
+  labels:
+    app: app-bar-nginx
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: app-bar-nginx
+  template:
+    metadata:
+      labels:
+        app: app-bar-nginx
+    spec:
+      volumes:
+        - name: secret
+          secret:
+            secretName: app-bar-files
+      containers:
+        - name: app-bar-nginx
+          image: nginx:stable
+          ports:
+            - containerPort: 80
+          env:
+            - name: SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: app-bar-env1
+                  key: SECRET
+            - name: PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: app-bar-password
+                  key: PASSWORD
+          volumeMounts:
+            - name: secret
+              mountPath: /secret
+              readOnly: true

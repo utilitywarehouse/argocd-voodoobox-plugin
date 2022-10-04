@@ -1,0 +1,18 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - app.yaml
+  - secrets/kube_secret.yaml
+
+secretGenerator:
+  - name: app-bar-env1
+    envs:
+      - secrets/env_secrets
+    options:
+      disableNameSuffixHash: true
+  - name: app-bar-files
+    files:
+      - secrets/s1.json
+      - secrets/s2.yaml
+    options:
+      disableNameSuffixHash: true
