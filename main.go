@@ -33,6 +33,7 @@ type applicationInfo struct {
 	name                 string
 	destinationNamespace string
 	keyringSecret        secretInfo
+	gitSSHSecret         secretInfo
 }
 
 type secretInfo struct {
@@ -125,14 +126,48 @@ func main() {
 			{
 				Name:  "generate",
 				Usage: "generate will run kustomize build to generate kube manifests",
-				Flags: commonFlags,
-				Action: func(cCtx *cli.Context) error {
+				Flags: append(commonFlags, []cli.Flag{
+					&cli.StringFlag{
+						Name:    "app-git-ssh-secret-namespace",
+						EnvVars: []string{argocdAppEnvPrefix + "GIT_SSH_SECRET_NAMESPACE"},
+						Usage: `set 'GIT_SSH_SECRET_NAMESPACE' in argocd application as plugin ENV. the value should be the
+	name of a namespace where secret resource containing ssh keys are located`,
+					},
+					&cli.StringFlag{
+						Name:    "app-git-ssh-secret-name",
+						EnvVars: []string{argocdAppEnvPrefix + "GIT_SSH_SECRET_NAME"},
+						Usage: `set 'GIT_SSH_SECRET_NAME' in argocd application as plugin ENV. the value should be the
+	name of a secret resource containing ssh keys used for fetching remote kustomize bases from private repositories`,
+					},
+					&cli.StringFlag{
+						Name: "secret-allowed-namespaces-annotation",
+						Usage: `when shared secret is used this value is the annotation key to look for in secret 
+	to get comma-separated list of all the namespaces that are allowed to use it`,
+						Destination: &secretAllowedNamespacesAnnotation,
+						Value:       "argocd-strongbox.plugin.io/allowed-namespaces",
+					},
+				}...),
+				Action: func(c *cli.Context) error {
 					cwd, err := os.Getwd()
 					if err != nil {
 						return fmt.Errorf("unable to get current working dir err:%s", err)
 					}
 
-					manifests, err := ensureBuild(cCtx.Context, cwd)
+					kubeClient, err = getKubeClient()
+					if err != nil {
+						return fmt.Errorf("unable to create kube clienset err:%s", err)
+					}
+
+					app := applicationInfo{
+						name:                 c.String("app-name"),
+						destinationNamespace: c.String("app-namespace"),
+					}
+					app.gitSSHSecret = secretInfo{
+						namespace: c.String("app-git-ssh-secret-namespace"),
+						name:      c.String("app-git-ssh-secret-name"),
+					}
+
+					manifests, err := ensureBuild(c.Context, cwd, app)
 					if err != nil {
 						return err
 					}
