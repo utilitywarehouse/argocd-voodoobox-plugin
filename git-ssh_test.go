@@ -14,8 +14,35 @@ import (
 )
 
 func Test_updateRepoBaseAddresses(t *testing.T) {
+	type args struct {
+		in []byte
+	}
+	tests := []struct {
+		name       string
+		args       args
+		wantOut    []byte
+		wantKeyMap map[string]string
+		wantErr    bool
+	}{
+		{
+			name: "valid",
+			args: args{
+				in: []byte(`apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - app/
 
-	wantUpdate := []byte(`apiVersion: kustomize.config.k8s.io/v1beta1
+  - github.com/org/open1//manifests/lab-foo?ref=master
+  # argocd-strongbox-plugin: key_a
+  - ssh://github.com/org/repo1//manifests/lab-foo?ref=master
+  # argocd-strongbox-plugin:keyD
+  - ssh://github.com/org/repo3//manifests/lab-zoo?ref=dev
+  # argocd-strongbox-plugin: sshKeyB
+  - ssh://gitlab.io/org/repo2//manifests/lab-bar?ref=main
+  # argocd-strongbox-plugin:  key_c
+  - ssh://bitbucket.org/org/repo3//manifests/lab-zoo?ref=dev
+`)},
+			wantOut: []byte(`apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
   - app/
@@ -29,24 +56,103 @@ resources:
   - ssh://sshKeyB_gitlab_io/org/repo2//manifests/lab-bar?ref=main
   # argocd-strongbox-plugin:  key_c
   - ssh://key_c_bitbucket_org/org/repo3//manifests/lab-zoo?ref=dev
-`)
+`),
+			wantKeyMap: map[string]string{
+				"key_a":   "github.com",
+				"sshKeyB": "gitlab.io",
+				"key_c":   "bitbucket.org",
+				"keyD":    "github.com",
+			},
+		}, {
+			name: "valid-with-empty-line",
+			args: args{
+				in: []byte(`apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - app/
 
-	wantKeyMap := map[string]string{
-		"key_a":   "github.com",
-		"sshKeyB": "gitlab.io",
-		"key_c":   "bitbucket.org",
-		"keyD":    "github.com",
-	}
+  - github.com/org/open1//manifests/lab-foo?ref=master
 
-	gotkeyMap, gotUpdate, err := updateRepoBaseAddresses("testData/app-with-remote-base/kustomization.yaml")
-	if err != nil {
-		t.Error(err)
+  # argocd-strongbox-plugin: key_a
+  - ssh://github.com/org/repo1//manifests/lab-foo?ref=master
+
+  # argocd-strongbox-plugin:keyD
+  - ssh://github.com/org/repo3//manifests/lab-zoo?ref=dev
+  # argocd-strongbox-plugin: sshKeyB
+  - ssh://gitlab.io/org/repo2//manifests/lab-bar?ref=main
+  # argocd-strongbox-plugin:  key_c
+  - ssh://bitbucket.org/org/repo3//manifests/lab-zoo?ref=dev
+`)},
+			wantOut: []byte(`apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - app/
+
+  - github.com/org/open1//manifests/lab-foo?ref=master
+
+  # argocd-strongbox-plugin: key_a
+  - ssh://key_a_github_com/org/repo1//manifests/lab-foo?ref=master
+
+  # argocd-strongbox-plugin:keyD
+  - ssh://keyD_github_com/org/repo3//manifests/lab-zoo?ref=dev
+  # argocd-strongbox-plugin: sshKeyB
+  - ssh://sshKeyB_gitlab_io/org/repo2//manifests/lab-bar?ref=main
+  # argocd-strongbox-plugin:  key_c
+  - ssh://key_c_bitbucket_org/org/repo3//manifests/lab-zoo?ref=dev
+`),
+			wantKeyMap: map[string]string{
+				"key_a":   "github.com",
+				"sshKeyB": "gitlab.io",
+				"key_c":   "bitbucket.org",
+				"keyD":    "github.com",
+			},
+		},
+		{
+			name: "missing key ref",
+			args: args{
+				in: []byte(`apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - app/
+
+  - github.com/org/open1//manifests/lab-foo?ref=master
+  - ssh://github.com/org/repo3//manifests/lab-zoo?ref=dev
+`)},
+			wantOut:    nil,
+			wantKeyMap: nil,
+			wantErr:    true,
+		},
+		{
+			name: "missing ssh protocol",
+			args: args{
+				in: []byte(`apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - app/
+
+  - github.com/org/open1//manifests/lab-foo?ref=master
+  # argocd-strongbox-plugin: key_c
+  - github.com/org/repo3//manifests/lab-zoo?ref=dev
+`)},
+			wantOut:    nil,
+			wantKeyMap: nil,
+			wantErr:    true,
+		},
 	}
-	if diff := cmp.Diff(wantKeyMap, gotkeyMap); diff != "" {
-		t.Errorf("updateRepoBaseAddresses() keyMap mismatch (-want +got):\n%s", diff)
-	}
-	if diff := cmp.Diff(wantUpdate, gotUpdate); diff != "" {
-		t.Errorf("updateRepoBaseAddresses() mismatch (-want +got):\n%s", diff)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gotKeyMap, gotOut, err := updateRepoBaseAddresses(bytes.NewReader(tt.args.in))
+			if (err != nil) != tt.wantErr {
+				t.Errorf("updateRepoBaseAddresses() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if diff := cmp.Diff(tt.wantKeyMap, gotKeyMap); diff != "" {
+				t.Errorf("updateRepoBaseAddresses() keyMap mismatch (-want +got):\n%s", diff)
+			}
+			if diff := cmp.Diff(tt.wantOut, gotOut); diff != "" {
+				t.Errorf("updateRepoBaseAddresses() output mismatch (-want +got):\n%s", diff)
+			}
+		})
 	}
 }
 

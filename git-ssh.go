@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -27,8 +28,8 @@ const (
 )
 
 var (
-	reKeyName     = regexp.MustCompile(`#\s*?argocd-strongbox-plugin:\s*?(\w+)`)
-	reRepoAddress = regexp.MustCompile(`(^\s*-\s*ssh:\/\/)([\w.]+?)(\/.*$)`)
+	reKeyName            = regexp.MustCompile(`#\s*?argocd-strongbox-plugin:\s*?(?P<keyName>\w+)`)
+	reRepoAddressWithSSH = regexp.MustCompile(`(?P<beginning>^\s*-\s*ssh:\/\/)(?P<domain>\w.+?)(?P<repoDetails>\/.*$)`)
 )
 
 func setupGitSSH(ctx context.Context, cwd string, app applicationInfo) (string, error) {
@@ -118,7 +119,13 @@ func processKustomizeFiles(tmpRepoDir string) (map[string]string, error) {
 	}
 
 	for _, k := range kFiles {
-		kd, out, err := updateRepoBaseAddresses(k)
+		in, err := os.Open(k)
+		if err != nil {
+			return nil, err
+		}
+		defer in.Close()
+
+		kd, out, err := updateRepoBaseAddresses(in)
 		if err != nil {
 			return nil, err
 		}
@@ -139,39 +146,46 @@ func processKustomizeFiles(tmpRepoDir string) (map[string]string, error) {
 // the next line by injecting given key name into domain, resulting in
 // `key_foo_github_com`. We must not use `.` - as it breaks Host matching in
 // .ssh/config. it will return map of key and domains it replaced so that ssh config file can be updated
-func updateRepoBaseAddresses(kFile string) (map[string]string, []byte, error) {
+func updateRepoBaseAddresses(in io.Reader) (map[string]string, []byte, error) {
 	keyedDomains := make(map[string]string)
 	var out []byte
-
-	in, err := os.Open(kFile)
-	if err != nil {
-		return nil, nil, err
-	}
-	defer in.Close()
 
 	scanner := bufio.NewScanner(in)
 	keyName := ""
 	for scanner.Scan() {
 		l := scanner.Text()
 
-		// look for Key
-		if reKeyName.MatchString(l) {
+		switch {
+
+		case reKeyName.MatchString(l):
+			// copy key
 			s := reKeyName.FindStringSubmatch(l)
 			if len(s) == 2 {
-				keyName = s[1]
+				keyName = s[reKeyName.SubexpIndex("keyName")]
 			}
-		} else if keyName != "" {
-			// If Key if found replace next url
-			if reRepoAddress.MatchString(l) {
-				sections := reRepoAddress.FindStringSubmatch(l)
-				if len(sections) == 4 {
-					domain := sections[2]
-					keyedDomains[keyName] = domain
-					l = fmt.Sprintf("%s%s_%s%s", sections[1], keyName, strings.ReplaceAll(domain, ".", "_"), sections[3])
-				}
+
+		case keyName != "" && !reRepoAddressWithSSH.MatchString(l):
+			return nil, nil, fmt.Errorf("found key reference in comment but next remote base url doesn't contain ssh://")
+
+		case keyName == "" && reRepoAddressWithSSH.MatchString(l):
+			return nil, nil, fmt.Errorf("found remote base url with ssh protocol without referenced key comment above")
+
+		case keyName != "" && reRepoAddressWithSSH.MatchString(l):
+			// If Key if found replace domain
+			sections := reRepoAddressWithSSH.FindStringSubmatch(l)
+			if len(sections) != 4 {
+				return nil, nil, fmt.Errorf("error parsing remote base url")
 			}
+			domain := sections[reRepoAddressWithSSH.SubexpIndex("domain")]
+			keyedDomains[keyName] = domain
+
+			l = sections[reRepoAddressWithSSH.SubexpIndex("beginning")] +
+				keyName + "_" + strings.ReplaceAll(domain, ".", "_") +
+				sections[reRepoAddressWithSSH.SubexpIndex("repoDetails")]
+
 			keyName = ""
 		}
+
 		out = append(out, l...)
 		out = append(out, "\n"...)
 	}
