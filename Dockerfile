@@ -5,7 +5,10 @@ ENV \
   STRONGBOX_VERSION=master \
   KUSTOMIZE_VERSION=v4.5.5
 
-RUN go install sigs.k8s.io/kustomize/kustomize/v4@${KUSTOMIZE_VERSION} \
+RUN os=$(go env GOOS) && arch=$(go env GOARCH) \
+  && curl -Ls https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize/${KUSTOMIZE_VERSION}/kustomize_${KUSTOMIZE_VERSION}_${os}_${arch}.tar.gz \
+    | tar xz -C /usr/local/bin/ \
+  && chmod +x /usr/local/bin/kustomize \
   && go install github.com/uw-labs/strongbox@${STRONGBOX_VERSION}
 
 ADD . /app
@@ -33,7 +36,7 @@ RUN groupadd -g $ARGOCD_USER_ID argocd && \
     rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
 COPY --from=build \
-  /go/bin/kustomize \
+  /usr/local/bin/kustomize \
   /go/bin/strongbox \
   /usr/local/bin/
 
