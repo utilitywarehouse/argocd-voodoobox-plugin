@@ -2,14 +2,16 @@
 FROM golang:1 AS build
 
 ENV \
-  STRONGBOX_VERSION=master \
+  STRONGBOX_VERSION=1.0.1 \
   KUSTOMIZE_VERSION=v4.5.5
 
 RUN os=$(go env GOOS) && arch=$(go env GOARCH) \
   && curl -Ls https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize/${KUSTOMIZE_VERSION}/kustomize_${KUSTOMIZE_VERSION}_${os}_${arch}.tar.gz \
     | tar xz -C /usr/local/bin/ \
   && chmod +x /usr/local/bin/kustomize \
-  && go install github.com/uw-labs/strongbox@${STRONGBOX_VERSION}
+  && curl -Ls https://github.com/uw-labs/strongbox/releases/download/v${STRONGBOX_VERSION}/strongbox_${STRONGBOX_VERSION}_${os}_${arch} \
+    > /usr/local/bin/strongbox \
+  && chmod +x  /usr/local/bin/strongbox
 
 ADD . /app
 
@@ -37,10 +39,9 @@ RUN groupadd -g $ARGOCD_USER_ID argocd && \
 
 COPY --from=build \
   /usr/local/bin/kustomize \
-  /go/bin/strongbox \
+  /usr/local/bin/strongbox \
+  /argocd-strongbox-plugin \
   /usr/local/bin/
-
-COPY --from=build /argocd-strongbox-plugin /usr/local/bin
 
 ENV USER=argocd
 
