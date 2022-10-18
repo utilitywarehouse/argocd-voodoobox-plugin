@@ -15,9 +15,10 @@ import (
 )
 
 var (
-	encryptedTestDir1 = "./testData/app-with-secrets-test1"
-	encryptedTestDir2 = "./testData/app-with-secrets-test2"
-	plainTextTestDir  = "./testData/app-without-secrets"
+	encryptedTestDir1     = "./testData/app-with-secrets-test1"
+	encryptedTestDir2     = "./testData/app-with-secrets-test2"
+	withRemoteBaseTestDir = "./testData/app-with-remote-base-test1"
+	// withRemoteBase        = "./testData/app-with-remote-base"
 )
 
 func getFileContent(t *testing.T, fileName string) []byte {
@@ -44,10 +45,18 @@ func TestMain(m *testing.M) {
 		os.Exit(1)
 	}
 
+	cmd = exec.Command("cp", "-r", "./testData/app-with-remote-base", withRemoteBaseTestDir)
+	out, err = cmd.CombinedOutput()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "%v", string(out))
+		os.Exit(1)
+	}
+
 	code := m.Run()
 
 	os.RemoveAll(encryptedTestDir1)
 	os.RemoveAll(encryptedTestDir2)
+	os.RemoveAll(withRemoteBaseTestDir)
 
 	os.Exit(code)
 }
@@ -64,7 +73,7 @@ func Test_hasEncryptedFiles(t *testing.T) {
 	}{
 		{"encryptedTestDir1", args{cwd: encryptedTestDir1}, true, false},
 		{"encryptedTestDir2", args{cwd: encryptedTestDir2}, true, false},
-		{"plainTextTestDir", args{cwd: plainTextTestDir}, false, false},
+		{"withRemoteBase", args{cwd: withRemoteBaseTestDir}, false, false},
 		{".github", args{cwd: ".github"}, false, false},
 	}
 	for _, tt := range tests {
@@ -165,7 +174,7 @@ func Test_ensureDecryption(t *testing.T) {
 		},
 	)
 
-	// plainTextTestDir doesn't have enc files so it should not look for "missing-secrets" secret
+	// withRemoteBase doesn't have enc files so it should not look for "missing-secrets" secret
 	bar := applicationInfo{
 		name:                 "bar",
 		destinationNamespace: "bar",
@@ -174,7 +183,7 @@ func Test_ensureDecryption(t *testing.T) {
 			key:  "invalid",
 		},
 	}
-	err = ensureDecryption(context.Background(), plainTextTestDir, bar)
+	err = ensureDecryption(context.Background(), withRemoteBaseTestDir, bar)
 	if err != nil {
 		t.Fatal(err)
 	}

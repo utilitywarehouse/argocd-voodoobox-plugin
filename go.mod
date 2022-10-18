@@ -3,6 +3,7 @@ module github.com/utilitywarehouse/argocd-strongbox-plugin
 go 1.19
 
 require (
+	github.com/google/go-cmp v0.5.9
 	github.com/hashicorp/go-hclog v1.3.1
 	github.com/urfave/cli/v2 v2.17.1
 	k8s.io/api v0.25.2

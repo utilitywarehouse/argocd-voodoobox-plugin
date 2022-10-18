@@ -12,7 +12,30 @@ if multiple keys are used to encrypt app secrets then this secret should contain
 ### `generate` 
 command will run kustomize build to generate kube resources's yaml strings. it will print this yaml stream to stdout.
 
+You can specify custom SSH keys to be used for fetching remote kustomize bases from private repositories. In order to do that, 
+you will need to set `GIT_SSH_SECRET_NAME` plugin env, it should reference a Secret name that contains one or more SSH keys 
+that provide access to the private repositories that contain these bases. if this env is not set then plugin will 
+only be able to fetch remote bases from open repositories.
+
+To use an SSH key for Kustomize bases, the bases should be defined with the ssh:// scheme in kustomization.yaml and have a 
+`# argocd-strongbox-plugin: key_foobar` comment above it. For example:
+
+```yaml
+resources:
+  # https scheme (default if omitted), any SSH keys defined are ignored
+  - github.com/org/open1//manifests/lab-foo?ref=master
+
+  # ssh scheme requires a valid SSH key to be defined
+  # here keyA will be used to fetch repo1 and KeyB for repo2
+  # argocd-strongbox-plugin: keyA
+  - ssh://github.com/org/repo1//manifests/lab-foo?ref=master
+  # argocd-strongbox-plugin: KeyB
+  - ssh://github.com/org/repo2//manifests/lab-zoo?ref=dev
+```
+
 ## Environment Variables
+
+### Strongbox ENVs
 
  Plugin supports following _plugin envs_ which can be set in ArgoCD Application crd
 
@@ -59,6 +82,35 @@ spec:
           value: .strongbox_keyring
 ```
 
+### Git SSH Keys Envs
+
+`GIT_SSH_SECRET_NAME` the value should be the name of a secret resource containing ssh keys used for fetching remote kustomize bases from private repositories. Additionally this Secret can optionally define a value for "known_hosts". If omitted, git will use ssh with StrictHostKeyChecking disabled. There is no default value for this env it must be set if repo base contains remote 
+private bases. 
+
+`GIT_SSH_SECRET_NAMESPACE` the value should be the name of a namespace where secret resource containing ssh keys are located. If this env is not specified then it defaults to the same namespace as the app's destination NS.
+the Secret should have an annotation called "argocd-strongbox.plugin.io/allowed-namespaces" which contains a comma-separated list of all the namespaces that are allowed to use it.
+
+```yaml
+kind: Secret
+apiVersion: v1
+metadata:
+  name: argocd-git-ssh
+  namespace: ns-a
+  annotations:
+    kube-applier.io/allowed-namespaces: "ns-b, ns-c"
+stringData:
+  keyA: |-
+    -----BEGIN OPENSSH PRIVATE KEY-----
+    AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==
+    -----END OPENSSH PRIVATE KEY-----
+  KeyB: |-
+    -----BEGIN OPENSSH PRIVATE KEY-----
+    AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==
+    -----END OPENSSH PRIVATE KEY-----
+  known_hosts: |-
+    github.com ssh-rsa AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==
+```
+
 ## Configuration and Installation plugin via sidecar 
 for more details please see [argocd-docs](https://argo-cd.readthedocs.io/en/latest/user-guide/config-management-plugins/#option-2-configure-plugin-via-sidecar).
 
@@ -86,10 +138,14 @@ data:
         command: 
           - argocd-strongbox-plugin
           - decrypt
+        args:
+          - "--secret-allowed-namespaces-annotation=argocd-strongbox.plugin.io/allowed-namespaces"
       generate:
         command:
           - argocd-strongbox-plugin
           - generate
+        args:
+          - "--secret-allowed-namespaces-annotation=argocd-strongbox.plugin.io/allowed-namespaces"
       lockRepo: false
 ```
 
