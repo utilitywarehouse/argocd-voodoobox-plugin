@@ -28,7 +28,7 @@ const (
 )
 
 var (
-	reKeyName            = regexp.MustCompile(`#\s*?argocd-strongbox-plugin:\s*?(?P<keyName>\w+)`)
+	reKeyName            = regexp.MustCompile(`#\s*?argocd-voodoobox-plugin:\s*?(?P<keyName>\w+)`)
 	reRepoAddressWithSSH = regexp.MustCompile(`(?P<beginning>^\s*-\s*ssh:\/\/)(?P<domain>\w.+?)(?P<repoDetails>\/.*$)`)
 )
 
@@ -142,7 +142,7 @@ func processKustomizeFiles(tmpRepoDir string) (map[string]string, error) {
 }
 
 // updateRepoBaseAddresses will read given kustomize file line by line trying to find KA key
-// comment `# argocd-strongbox-plugin: key_foo`, we then attempt to replace the domain on
+// comment `# argocd-voodoobox-plugin: key_foo`, we then attempt to replace the domain on
 // the next line by injecting given key name into domain, resulting in
 // `key_foo_github_com`. We must not use `.` - as it breaks Host matching in
 // .ssh/config. it will return map of key and domains it replaced so that ssh config file can be updated

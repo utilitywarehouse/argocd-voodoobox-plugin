@@ -1,4 +1,4 @@
-# argocd-strongbox-plugin
+# argocd-voodoobox-plugin
 
 An Argo CD plugin to decrypt strongbox encrypted files and build Kubernetes resources. 
 plugin supports argocd version from 2.4 onwards and only same cluster deployments are supported.
@@ -18,7 +18,7 @@ that provide access to the private repositories that contain these bases. if thi
 only be able to fetch remote bases from open repositories.
 
 To use an SSH key for Kustomize bases, the bases should be defined with the ssh:// scheme in kustomization.yaml and have a 
-`# argocd-strongbox-plugin: key_foobar` comment above it. For example:
+`# argocd-voodoobox-plugin: key_foobar` comment above it. For example:
 
 ```yaml
 resources:
@@ -27,9 +27,9 @@ resources:
 
   # ssh scheme requires a valid SSH key to be defined
   # here keyA will be used to fetch repo1 and KeyB for repo2
-  # argocd-strongbox-plugin: keyA
+  # argocd-voodoobox-plugin: keyA
   - ssh://github.com/org/repo1//manifests/lab-foo?ref=master
-  # argocd-strongbox-plugin: KeyB
+  # argocd-voodoobox-plugin: KeyB
   - ssh://github.com/org/repo2//manifests/lab-zoo?ref=dev
 ```
 
@@ -44,7 +44,7 @@ resources:
 `STRONGBOX_SECRET_KEY` the value should be the name of the secret data key which contains a valid strongbox keyring file data. the default value is `.strongbox_keyring`
 
 `STRONGBOX_SECRET_NAMESPACE` If you need to deploy a shared strongbox keyring to use in multiple namespaces, then it can be set by this ENV.
-the Secret should have an annotation called "argocd-strongbox.plugin.io/allowed-namespaces" which contains a comma-separated list of all the namespaces that are allowed to use it.
+the Secret should have an annotation called "argocd.voodoobox.plugin.io/allowed-namespaces" which contains a comma-separated list of all the namespaces that are allowed to use it.
 Since ArgoCD Application can be used to create a namespace, wild card is not supported in the allow list. it is an exact matching.
 If this env is not specified then it defaults to the same namespace as the app's destination NS.
 
@@ -57,7 +57,7 @@ metadata:
   name: argocd-strongbox-keyring
   namespace: ns-a
   annotations:
-    argocd-strongbox.plugin.io/allowed-namespaces: "ns-b, ns-c"
+    argocd.voodoobox.plugin.io/allowed-namespaces: "ns-b, ns-c"
 stringData:
   .strongbox_keyring: |-
     keyentries:
@@ -88,7 +88,7 @@ spec:
 private bases. 
 
 `GIT_SSH_SECRET_NAMESPACE` the value should be the name of a namespace where secret resource containing ssh keys are located. If this env is not specified then it defaults to the same namespace as the app's destination NS.
-the Secret should have an annotation called "argocd-strongbox.plugin.io/allowed-namespaces" which contains a comma-separated list of all the namespaces that are allowed to use it.
+the Secret should have an annotation called "argocd.voodoobox.plugin.io/allowed-namespaces" which contains a comma-separated list of all the namespaces that are allowed to use it.
 
 ```yaml
 kind: Secret
@@ -129,23 +129,23 @@ data:
     apiVersion: argoproj.io/v1alpha1
     kind: ConfigManagementPlugin
     metadata:
-      name: argocd-strongbox-plugin
+      name: argocd-voodoobox-plugin
     spec:
       allowConcurrency: true
       discover:
         fileName: "*"
       init:
         command: 
-          - argocd-strongbox-plugin
+          - argocd-voodoobox-plugin
           - decrypt
         args:
-          - "--secret-allowed-namespaces-annotation=argocd-strongbox.plugin.io/allowed-namespaces"
+          - "--secret-allowed-namespaces-annotation=argocd.voodoobox.plugin.io/allowed-namespaces"
       generate:
         command:
-          - argocd-strongbox-plugin
+          - argocd-voodoobox-plugin
           - generate
         args:
-          - "--secret-allowed-namespaces-annotation=argocd-strongbox.plugin.io/allowed-namespaces"
+          - "--secret-allowed-namespaces-annotation=argocd.voodoobox.plugin.io/allowed-namespaces"
       lockRepo: false
 ```
 
@@ -169,7 +169,7 @@ spec:
           name: cmp-plugin
       containers:
         - name: asp
-          image: quay.io/utilitywarehouse/argocd-strongbox-plugin:latest
+          image: quay.io/utilitywarehouse/argocd-voodoobox-plugin:latest
           imagePullPolicy: Always
           command: [/var/run/argocd/argocd-cmp-server]
           securityContext:
@@ -200,7 +200,7 @@ Important notes from argocd docs
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: argocd-strongbox-plugin
+  name: argocd-voodoobox-plugin
 rules:
   - apiGroups: [""]
     resources: ["secrets"]
@@ -210,11 +210,11 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
   labels:
-  name: argocd-strongbox-plugin
+  name: argocd-voodoobox-plugin
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: argocd-strongbox-plugin
+  name: argocd-voodoobox-plugin
 subjects:
   - kind: ServiceAccount
     name: argocd-repo-server
@@ -229,7 +229,7 @@ subjects:
 
 | app arguments/ENVs | default | example / explanation |
 |-|-|-|
-| --secret-allowed-namespaces-annotation | argocd-strongbox.plugin.io/allowed-namespaces | when shared secret is used this value is the annotation key to look for in secret to get comma-separated list of all the namespaces that are allowed to use it |
+| --secret-allowed-namespaces-annotation | argocd.voodoobox.plugin.io/allowed-namespaces | when shared secret is used this value is the annotation key to look for in secret to get comma-separated list of all the namespaces that are allowed to use it |
 | ARGOCD_APP_NAME | set by argocd | name of application |
 | ARGOCD_APP_NAMESPACE | set by argocd | application's destination namespace |
 | STRONGBOX_SECRET_NAME¹ | argocd-strongbox-keyring | the name of a secret resource containing strongbox keyring used to encrypt app secrets |

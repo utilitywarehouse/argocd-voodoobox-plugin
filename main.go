@@ -20,7 +20,7 @@ var (
 	secretAllowedNamespacesAnnotation string
 
 	logger = hclog.New(&hclog.LoggerOptions{
-		Name: "argocd-strongbox-plugin",
+		Name: "argocd-voodoobox-plugin",
 
 		// when plugin commands are executed by repo server
 		// logs are only printed if there is an error while executing a command
@@ -93,7 +93,7 @@ func main() {
 						Usage: `when shared secret is used this value is the annotation key to look for in secret 
 	to get comma-separated list of all the namespaces that are allowed to use it`,
 						Destination: &secretAllowedNamespacesAnnotation,
-						Value:       "argocd-strongbox.plugin.io/allowed-namespaces",
+						Value:       "argocd.voodoobox.plugin.io/allowed-namespaces",
 					},
 				}...),
 				Action: func(c *cli.Context) error {
@@ -144,7 +144,7 @@ func main() {
 						Usage: `when shared secret is used this value is the annotation key to look for in secret 
 	to get comma-separated list of all the namespaces that are allowed to use it`,
 						Destination: &secretAllowedNamespacesAnnotation,
-						Value:       "argocd-strongbox.plugin.io/allowed-namespaces",
+						Value:       "argocd.voodoobox.plugin.io/allowed-namespaces",
 					},
 				}...),
 				Action: func(c *cli.Context) error {

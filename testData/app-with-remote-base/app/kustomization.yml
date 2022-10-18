@@ -3,5 +3,5 @@ kind: Kustomization
 resources:
   - app.yaml
 
-  # argocd-strongbox-plugin: keyE
+  # argocd-voodoobox-plugin: keyE
   - ssh://github.com/org/repo5//manifests/foo?ref=master
