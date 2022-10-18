@@ -1,4 +1,4 @@
-module github.com/utilitywarehouse/argocd-strongbox-plugin
+module github.com/utilitywarehouse/argocd-voodoobox-plugin
 
 go 1.19
 

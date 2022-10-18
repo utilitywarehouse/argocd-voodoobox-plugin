@@ -19,7 +19,7 @@ WORKDIR /app
 
 
 RUN go test -v -cover ./... \
-    && go build -o /argocd-strongbox-plugin .
+    && go build -o /argocd-voodoobox-plugin .
 
 # final stage
 # argocd requires that sidecar container is running as user 999
@@ -40,7 +40,7 @@ RUN groupadd -g $ARGOCD_USER_ID argocd && \
 COPY --from=build \
   /usr/local/bin/kustomize \
   /usr/local/bin/strongbox \
-  /argocd-strongbox-plugin \
+  /argocd-voodoobox-plugin \
   /usr/local/bin/
 
 ENV USER=argocd

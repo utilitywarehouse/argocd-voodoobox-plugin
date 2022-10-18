@@ -33,13 +33,13 @@ resources:
   - app/
 
   - github.com/org/open1//manifests/lab-foo?ref=master
-  # argocd-strongbox-plugin: key_a
+  # argocd-voodoobox-plugin: key_a
   - ssh://github.com/org/repo1//manifests/lab-foo?ref=master
-  # argocd-strongbox-plugin:keyD
+  # argocd-voodoobox-plugin:keyD
   - ssh://github.com/org/repo3//manifests/lab-zoo?ref=dev
-  # argocd-strongbox-plugin: sshKeyB
+  # argocd-voodoobox-plugin: sshKeyB
   - ssh://gitlab.io/org/repo2//manifests/lab-bar?ref=main
-  # argocd-strongbox-plugin:  key_c
+  # argocd-voodoobox-plugin:  key_c
   - ssh://bitbucket.org/org/repo3//manifests/lab-zoo?ref=dev
 `)},
 			wantOut: []byte(`apiVersion: kustomize.config.k8s.io/v1beta1
@@ -48,13 +48,13 @@ resources:
   - app/
 
   - github.com/org/open1//manifests/lab-foo?ref=master
-  # argocd-strongbox-plugin: key_a
+  # argocd-voodoobox-plugin: key_a
   - ssh://key_a_github_com/org/repo1//manifests/lab-foo?ref=master
-  # argocd-strongbox-plugin:keyD
+  # argocd-voodoobox-plugin:keyD
   - ssh://keyD_github_com/org/repo3//manifests/lab-zoo?ref=dev
-  # argocd-strongbox-plugin: sshKeyB
+  # argocd-voodoobox-plugin: sshKeyB
   - ssh://sshKeyB_gitlab_io/org/repo2//manifests/lab-bar?ref=main
-  # argocd-strongbox-plugin:  key_c
+  # argocd-voodoobox-plugin:  key_c
   - ssh://key_c_bitbucket_org/org/repo3//manifests/lab-zoo?ref=dev
 `),
 			wantKeyMap: map[string]string{
@@ -73,14 +73,14 @@ resources:
 
   - github.com/org/open1//manifests/lab-foo?ref=master
 
-  # argocd-strongbox-plugin: key_a
+  # argocd-voodoobox-plugin: key_a
   - ssh://github.com/org/repo1//manifests/lab-foo?ref=master
 
-  # argocd-strongbox-plugin:keyD
+  # argocd-voodoobox-plugin:keyD
   - ssh://github.com/org/repo3//manifests/lab-zoo?ref=dev
-  # argocd-strongbox-plugin: sshKeyB
+  # argocd-voodoobox-plugin: sshKeyB
   - ssh://gitlab.io/org/repo2//manifests/lab-bar?ref=main
-  # argocd-strongbox-plugin:  key_c
+  # argocd-voodoobox-plugin:  key_c
   - ssh://bitbucket.org/org/repo3//manifests/lab-zoo?ref=dev
 `)},
 			wantOut: []byte(`apiVersion: kustomize.config.k8s.io/v1beta1
@@ -90,14 +90,14 @@ resources:
 
   - github.com/org/open1//manifests/lab-foo?ref=master
 
-  # argocd-strongbox-plugin: key_a
+  # argocd-voodoobox-plugin: key_a
   - ssh://key_a_github_com/org/repo1//manifests/lab-foo?ref=master
 
-  # argocd-strongbox-plugin:keyD
+  # argocd-voodoobox-plugin:keyD
   - ssh://keyD_github_com/org/repo3//manifests/lab-zoo?ref=dev
-  # argocd-strongbox-plugin: sshKeyB
+  # argocd-voodoobox-plugin: sshKeyB
   - ssh://sshKeyB_gitlab_io/org/repo2//manifests/lab-bar?ref=main
-  # argocd-strongbox-plugin:  key_c
+  # argocd-voodoobox-plugin:  key_c
   - ssh://key_c_bitbucket_org/org/repo3//manifests/lab-zoo?ref=dev
 `),
 			wantKeyMap: map[string]string{
@@ -131,7 +131,7 @@ resources:
   - app/
 
   - github.com/org/open1//manifests/lab-foo?ref=master
-  # argocd-strongbox-plugin: key_c
+  # argocd-voodoobox-plugin: key_c
   - github.com/org/repo3//manifests/lab-zoo?ref=dev
 `)},
 			wantOut:    nil,

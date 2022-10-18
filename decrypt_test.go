@@ -142,7 +142,7 @@ func Test_getKeyRingData(t *testing.T) {
 }
 
 func Test_ensureDecryption(t *testing.T) {
-	secretAllowedNamespacesAnnotation = "argocd-strongbox.plugin.io/allowed-namespaces"
+	secretAllowedNamespacesAnnotation = "argocd.voodoobox.plugin.io/allowed-namespaces"
 
 	// read keyring file
 	kr, err := os.ReadFile(encryptedTestDir1 + "/.keyRing")
@@ -165,7 +165,7 @@ func Test_ensureDecryption(t *testing.T) {
 				Name:      "strongbox-secret",
 				Namespace: "not-baz",
 				Annotations: map[string]string{
-					"argocd-strongbox.plugin.io/allowed-namespaces": "baz,rand",
+					"argocd.voodoobox.plugin.io/allowed-namespaces": "baz,rand",
 				},
 			},
 			Data: map[string][]byte{

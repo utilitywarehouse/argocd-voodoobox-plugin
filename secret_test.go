@@ -11,7 +11,7 @@ import (
 )
 
 func Test_getSecret(t *testing.T) {
-	secretAllowedNamespacesAnnotation = "argocd-strongbox.plugin.io/allowed-namespaces"
+	secretAllowedNamespacesAnnotation = "argocd.voodoobox.plugin.io/allowed-namespaces"
 
 	kubeClient = fake.NewSimpleClientset(
 		&v1.Secret{
@@ -25,7 +25,7 @@ func Test_getSecret(t *testing.T) {
 				Name:      "strongbox-secret",
 				Namespace: "foo",
 				Annotations: map[string]string{
-					"argocd-strongbox.plugin.io/allowed-namespaces": "bar,baz",
+					"argocd.voodoobox.plugin.io/allowed-namespaces": "bar,baz",
 				},
 			},
 		},
@@ -65,7 +65,7 @@ func Test_getSecret(t *testing.T) {
 			&v1.Secret{
 				ObjectMeta: metaV1.ObjectMeta{
 					Name: "strongbox-secret", Namespace: "foo",
-					Annotations: map[string]string{"argocd-strongbox.plugin.io/allowed-namespaces": "bar,baz"},
+					Annotations: map[string]string{"argocd.voodoobox.plugin.io/allowed-namespaces": "bar,baz"},
 				},
 			},
 			false,

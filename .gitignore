@@ -1,2 +1,3 @@
-argocd-strongbox-plugin
+argocd-voodoobox-plugin
 testData/app-with-secrets-test*
+testData/app-with-remote-base-test*
