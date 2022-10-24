@@ -19,7 +19,7 @@ WORKDIR /app
 
 
 RUN go test -v -cover ./... \
-    && go build -o /argocd-voodoobox-plugin .
+    && go build -ldflags='-s -w' -o /argocd-voodoobox-plugin .
 
 # final stage
 # argocd requires that sidecar container is running as user 999
