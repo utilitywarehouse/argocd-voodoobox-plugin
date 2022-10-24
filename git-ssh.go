@@ -167,8 +167,7 @@ func updateRepoBaseAddresses(in io.Reader) (map[string]string, []byte, error) {
 		case keyName != "" && !reRepoAddressWithSSH.MatchString(l):
 			return nil, nil, fmt.Errorf("found key reference in comment but next remote base url doesn't contain ssh://")
 
-		// referencing key is not mandatory since only 1 ssh key
-		//  can be sued for all private base
+		// referencing key is not mandatory since only 1 key can be used for all private base
 		// case keyName == "" && reRepoAddressWithSSH.MatchString(l):
 		// 	return nil, nil, fmt.Errorf("found remote base url with ssh protocol without referenced key comment above")
 
