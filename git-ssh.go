@@ -28,7 +28,7 @@ const (
 )
 
 var (
-	reKeyName            = regexp.MustCompile(`#\s*?argocd-voodoobox-plugin:\s*?(?P<keyName>\w+)`)
+	reKeyName            = regexp.MustCompile(`#.*?argocd-voodoobox-plugin:\s*?(?P<keyName>\w+)`)
 	reRepoAddressWithSSH = regexp.MustCompile(`(?P<beginning>^\s*-\s*ssh:\/\/)(?P<domain>\w.+?)(?P<repoDetails>\/.*$)`)
 )
 
@@ -167,8 +167,9 @@ func updateRepoBaseAddresses(in io.Reader) (map[string]string, []byte, error) {
 		case keyName != "" && !reRepoAddressWithSSH.MatchString(l):
 			return nil, nil, fmt.Errorf("found key reference in comment but next remote base url doesn't contain ssh://")
 
-		case keyName == "" && reRepoAddressWithSSH.MatchString(l):
-			return nil, nil, fmt.Errorf("found remote base url with ssh protocol without referenced key comment above")
+		// referencing key is not mandatory since only 1 key can be used for all private base
+		// case keyName == "" && reRepoAddressWithSSH.MatchString(l):
+		// 	return nil, nil, fmt.Errorf("found remote base url with ssh protocol without referenced key comment above")
 
 		case keyName != "" && reRepoAddressWithSSH.MatchString(l):
 			// If Key if found replace domain

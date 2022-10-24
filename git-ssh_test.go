@@ -107,6 +107,39 @@ resources:
 				"keyD":    "github.com",
 			},
 		},
+
+		{
+			name: "extra comments before key ref",
+			args: args{
+				in: []byte(`apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - app/
+
+  - github.com/org/open1//manifests/lab-foo?ref=master
+  # some-extra comment : key_b argocd-voodoobox-plugin: sshKeyB
+  - ssh://gitlab.io/org/repo2//manifests/lab-bar?ref=main
+  # argocd-voodoobox-plugin:  key_c
+  - ssh://bitbucket.org/org/repo3//manifests/lab-zoo?ref=dev
+`)},
+			wantOut: []byte(`apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - app/
+
+  - github.com/org/open1//manifests/lab-foo?ref=master
+  # some-extra comment : key_b argocd-voodoobox-plugin: sshKeyB
+  - ssh://sshKeyB_gitlab_io/org/repo2//manifests/lab-bar?ref=main
+  # argocd-voodoobox-plugin:  key_c
+  - ssh://key_c_bitbucket_org/org/repo3//manifests/lab-zoo?ref=dev
+`),
+			wantKeyMap: map[string]string{
+				"sshKeyB": "gitlab.io",
+				"key_c":   "bitbucket.org",
+			},
+			wantErr: false,
+		},
+
 		{
 			name: "missing key ref",
 			args: args{
@@ -118,10 +151,18 @@ resources:
   - github.com/org/open1//manifests/lab-foo?ref=master
   - ssh://github.com/org/repo3//manifests/lab-zoo?ref=dev
 `)},
-			wantOut:    nil,
-			wantKeyMap: nil,
-			wantErr:    true,
+			wantOut: []byte(`apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - app/
+
+  - github.com/org/open1//manifests/lab-foo?ref=master
+  - ssh://github.com/org/repo3//manifests/lab-zoo?ref=dev
+`),
+			wantKeyMap: map[string]string{},
+			wantErr:    false,
 		},
+
 		{
 			name: "missing ssh protocol",
 			args: args{
