@@ -12,13 +12,12 @@ if multiple keys are used to encrypt app secrets then this secret should contain
 ### `generate` 
 command will run kustomize build to generate kube resources's yaml strings. it will print this yaml stream to stdout.
 
-You can specify custom SSH keys to be used for fetching remote kustomize bases from private repositories. In order to do that, 
-you will need to set `GIT_SSH_SECRET_NAME` plugin env, it should reference a Secret name that contains one or more SSH keys 
-that provide access to the private repositories that contain these bases. if this env is not set then plugin will 
-only be able to fetch remote bases from open repositories.
+Plugin support fetching remote base from private repositories, to do that user must create a secret with name `argocd-voodoobox-git-ssh`, 
+that contains one or more SSH keys that provide access to the private repositories that contain these bases. To use an SSH key for Kustomize bases, 
+the bases URL should be defined with the ssh:// scheme in kustomization.yaml and have a `# argocd-voodoobox-plugin: <key_file_name>` comment above it.
+if only 1 ssh key is used for ALL private repos then there is no need to specify this comment. 
 
-To use an SSH key for Kustomize bases, the bases should be defined with the ssh:// scheme in kustomization.yaml and have a 
-`# argocd-voodoobox-plugin: key_foobar` comment above it. For example:
+If `ssh://` is not used then plugin will assume only public repos are used and it will skip ssh config setup.
 
 ```yaml
 resources:
@@ -39,7 +38,7 @@ resources:
 
  Plugin supports following _plugin envs_ which can be set in ArgoCD Application crd
 
-`STRONGBOX_SECRET_NAME` the value should be the name of a secret resource containing strongbox keyring used to encrypt app secrets. the default value is `argocd-strongbox-keyring`
+The value of name of a secret resource containing strongbox keyring used to encrypt app secrets, must be `argocd-strongbox-keyring`.
 
 `STRONGBOX_SECRET_KEY` the value should be the name of the secret data key which contains a valid strongbox keyring file data. the default value is `.strongbox_keyring`
 
@@ -76,16 +75,11 @@ spec:
       env:
         - name: STRONGBOX_SECRET_NAMESPACE
           value: team-a
-        - name: STRONGBOX_SECRET_NAME
-          value: argocd-strongbox-keyring
         - name: STRONGBOX_SECRET_KEY
           value: .strongbox_keyring
 ```
 
 ### Git SSH Keys Envs
-
-`GIT_SSH_SECRET_NAME` the value should be the name of a secret resource containing ssh keys used for fetching remote kustomize bases from private repositories. Additionally this Secret can optionally define a value for "known_hosts". If omitted, git will use ssh with StrictHostKeyChecking disabled. There is no default value for this env it must be set if repo base contains remote 
-private bases. 
 
 `GIT_SSH_SECRET_NAMESPACE` the value should be the name of a namespace where secret resource containing ssh keys are located. If this env is not specified then it defaults to the same namespace as the app's destination NS.
 the Secret should have an annotation called "argocd.voodoobox.plugin.io/allowed-namespaces" which contains a comma-separated list of all the namespaces that are allowed to use it.
@@ -94,7 +88,7 @@ the Secret should have an annotation called "argocd.voodoobox.plugin.io/allowed-
 kind: Secret
 apiVersion: v1
 metadata:
-  name: argocd-git-ssh
+  name: argocd-voodoobox-git-ssh
   namespace: ns-a
   annotations:
     kube-applier.io/allowed-namespaces: "ns-b, ns-c"
@@ -139,12 +133,14 @@ data:
           - argocd-voodoobox-plugin
           - decrypt
         args:
+          - "--app-strongbox-secret-name=argocd-strongbox-keyring"
           - "--secret-allowed-namespaces-annotation=argocd.voodoobox.plugin.io/allowed-namespaces"
       generate:
         command:
           - argocd-voodoobox-plugin
           - generate
         args:
+          - "--app-git-ssh-secret-name=argocd-voodoobox-git-ssh"
           - "--secret-allowed-namespaces-annotation=argocd.voodoobox.plugin.io/allowed-namespaces"
       lockRepo: false
 ```
@@ -204,6 +200,9 @@ metadata:
 rules:
   - apiGroups: [""]
     resources: ["secrets"]
+    resourceNames:
+      - argocd-strongbox-keyring
+      - argocd-voodoobox-git-ssh
     verbs: ["get"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
@@ -230,10 +229,12 @@ subjects:
 | app arguments/ENVs | default | example / explanation |
 |-|-|-|
 | --secret-allowed-namespaces-annotation | argocd.voodoobox.plugin.io/allowed-namespaces | when shared secret is used this value is the annotation key to look for in secret to get comma-separated list of all the namespaces that are allowed to use it |
+| --app-strongbox-secret-name | argocd-strongbox-keyring | the value should be the name of a secret resource containing strongbox keyring used to encrypt app secrets. name will be same across all applications |
+| --app-git-ssh-secret-name | argocd-voodoobox-git-ssh | the value should be the name of a secret resource containing ssh keys used for fetching remote kustomize bases from private repositories. name will be same across all applications |
 | ARGOCD_APP_NAME | set by argocd | name of application |
 | ARGOCD_APP_NAMESPACE | set by argocd | application's destination namespace |
-| STRONGBOX_SECRET_NAME¹ | argocd-strongbox-keyring | the name of a secret resource containing strongbox keyring used to encrypt app secrets |
 | STRONGBOX_KEYRING_KEY¹ | .strongbox_keyring | the name of the secret data key which contains a valid strongbox keyring file |
 | STRONGBOX_SECRET_NAMESPACE¹ | | the name of a namespace where secret resource containing strongbox keyring is located |
+| GIT_SSH_SECRET_NAMESPACE¹ | | the value should be the name of a namespace where secret resource containing ssh keys are located |
 
 ¹ These ENVs should be added to argocd application plugin env sections
