@@ -33,26 +33,16 @@ var (
 )
 
 func setupGitSSH(ctx context.Context, cwd string, app applicationInfo) (string, error) {
-	// Even when there is no git SSH secret defined, we still override the
-	// git ssh command (pointing the key to /dev/null) in order to avoid
-	// using ssh keys in default system locations and to surface the error
-	// if bases over ssh have been configured.
-	sshCmd := `GIT_SSH_COMMAND=ssh -q -F none -o IdentitiesOnly=yes -o IdentityFile=/dev/null -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no`
 	knownHostsFragment := `-o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no`
-
-	// if ssh secret name is not set skip setup
-	if app.gitSSHSecret.name == "" {
-		return sshCmd, nil
-	}
 
 	sec, err := getSecret(ctx, app.destinationNamespace, app.gitSSHSecret)
 	if err != nil {
-		return sshCmd, fmt.Errorf("unable to get secret err:%v", err)
+		return "", fmt.Errorf("unable to get secret err:%v", err)
 	}
 
 	sshDir := filepath.Join(cwd, ".ssh")
 	if err := os.Mkdir(sshDir, 0700); err != nil {
-		return sshCmd, fmt.Errorf("unable to create ssh config dir err:%s", err)
+		return "", fmt.Errorf("unable to create ssh config dir err:%s", err)
 	}
 
 	// keyFilePaths holds key name and path values
