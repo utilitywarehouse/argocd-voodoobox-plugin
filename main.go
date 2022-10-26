@@ -82,7 +82,7 @@ func main() {
 						Value: ".strongbox_keyring",
 					},
 					// do not set `EnvVars` for secret name flag
-					// To keep service account's permission minimum name of the secret is static across ALL applications.
+					// To keep service account's permission minimum, the name of the secret is static across ALL applications.
 					// this value should only be set by admins of argocd as part of plugin setup
 					&cli.StringFlag{
 						Name: "app-strongbox-secret-name",
@@ -136,13 +136,13 @@ encrypt app secrets. name will be same across all applications`,
 	name of a namespace where secret resource containing ssh keys are located`,
 					},
 					// do not set `EnvVars` for secret name flag
-					// To keep service account's permission minimum name of the secret is static across ALL applications.
+					// To keep service account's permission minimum, the name of the secret is static across ALL applications.
 					// this value should only be set by admins of argocd as part of plugin setup
 					&cli.StringFlag{
 						Name: "app-git-ssh-secret-name",
 						Usage: `the value should be the name of a secret resource containing ssh keys used for 
 fetching remote kustomize bases from private repositories. name will be same across all applications`,
-						Value: "argocd-git-ssh",
+						Value: "argocd-voodoobox-git-ssh",
 					},
 					&cli.StringFlag{
 						Name: "secret-allowed-namespaces-annotation",
