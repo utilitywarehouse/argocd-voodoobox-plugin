@@ -88,7 +88,7 @@ func main() {
 						Name: "app-strongbox-secret-name",
 						Usage: `the value should be the name of a secret resource containing strongbox keyring used to 
 encrypt app secrets. name will be same across all applications`,
-						Value: "argocd-strongbox-keyring",
+						Value: "argocd-voodoobox-strongbox-keyring",
 					},
 					&cli.StringFlag{
 						Name: "secret-allowed-namespaces-annotation",

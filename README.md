@@ -38,7 +38,7 @@ resources:
 
  Plugin supports following _plugin envs_ which can be set in ArgoCD Application crd
 
-The value of name of a secret resource containing strongbox keyring used to encrypt app secrets, must be `argocd-strongbox-keyring`.
+The value of name of a secret resource containing strongbox keyring used to encrypt app secrets, must be `argocd-voodoobox-strongbox-keyring`.
 
 `STRONGBOX_SECRET_KEY` the value should be the name of the secret data key which contains a valid strongbox keyring file data. the default value is `.strongbox_keyring`
 
@@ -53,7 +53,7 @@ If this env is not specified then it defaults to the same namespace as the app's
 kind: Secret
 apiVersion: v1
 metadata:
-  name: argocd-strongbox-keyring
+  name: argocd-voodoobox-strongbox-keyring
   namespace: ns-a
   annotations:
     argocd.voodoobox.plugin.io/allowed-namespaces: "ns-b, ns-c"
@@ -133,7 +133,7 @@ data:
           - argocd-voodoobox-plugin
           - decrypt
         args:
-          - "--app-strongbox-secret-name=argocd-strongbox-keyring"
+          - "--app-strongbox-secret-name=argocd-voodoobox-strongbox-keyring"
           - "--secret-allowed-namespaces-annotation=argocd.voodoobox.plugin.io/allowed-namespaces"
       generate:
         command:
@@ -201,7 +201,7 @@ rules:
   - apiGroups: [""]
     resources: ["secrets"]
     resourceNames:
-      - argocd-strongbox-keyring
+      - argocd-voodoobox-strongbox-keyring
       - argocd-voodoobox-git-ssh
     verbs: ["get"]
 ---
@@ -229,7 +229,7 @@ subjects:
 | app arguments/ENVs | default | example / explanation |
 |-|-|-|
 | --secret-allowed-namespaces-annotation | argocd.voodoobox.plugin.io/allowed-namespaces | when shared secret is used this value is the annotation key to look for in secret to get comma-separated list of all the namespaces that are allowed to use it |
-| --app-strongbox-secret-name | argocd-strongbox-keyring | the value should be the name of a secret resource containing strongbox keyring used to encrypt app secrets. name will be same across all applications |
+| --app-strongbox-secret-name | argocd-voodoobox-strongbox-keyring | the value should be the name of a secret resource containing strongbox keyring used to encrypt app secrets. name will be same across all applications |
 | --app-git-ssh-secret-name | argocd-voodoobox-git-ssh | the value should be the name of a secret resource containing ssh keys used for fetching remote kustomize bases from private repositories. name will be same across all applications |
 | ARGOCD_APP_NAME | set by argocd | name of application |
 | ARGOCD_APP_NAMESPACE | set by argocd | application's destination namespace |
