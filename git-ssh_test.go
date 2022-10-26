@@ -338,7 +338,7 @@ func Test_setupGitSSH(t *testing.T) {
 	kubeClient = fake.NewSimpleClientset(
 		&v1.Secret{
 			ObjectMeta: metaV1.ObjectMeta{
-				Name:      "argocd-git-ssh",
+				Name:      "argocd-voodoobox-git-ssh",
 				Namespace: "foo",
 			},
 			Data: map[string][]byte{
@@ -352,30 +352,28 @@ func Test_setupGitSSH(t *testing.T) {
 		},
 	)
 
-	noRemoteBase := applicationInfo{
+	withOutSecret := applicationInfo{
 		name:                 "app-foo",
-		destinationNamespace: "foo",
+		destinationNamespace: "foo-bar",
+		gitSSHSecret: secretInfo{
+			name: "argocd-voodoobox-git-ssh",
+		},
 	}
-
-	defaultEnv := "GIT_SSH_COMMAND=ssh -q -F none -o IdentitiesOnly=yes -o IdentityFile=/dev/null -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no"
-	env, err := setupGitSSH(context.Background(), withRemoteBaseTestDir, noRemoteBase)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if diff := cmp.Diff(defaultEnv, env); diff != "" {
-		t.Errorf("setupGitSSH()  mismatch (-want +got):\n%s", diff)
+	_, err := setupGitSSH(context.Background(), withRemoteBaseTestDir, withOutSecret)
+	if err == nil {
+		t.Fatal("expecting error here for missing secret from foo-bar NS")
 	}
 
 	app := applicationInfo{
 		name:                 "app-foo",
 		destinationNamespace: "foo",
 		gitSSHSecret: secretInfo{
-			name: "argocd-git-ssh",
+			name: "argocd-voodoobox-git-ssh",
 		},
 	}
 
 	wnatEnv := "GIT_SSH_COMMAND=ssh -q -F testData/app-with-remote-base-test1/.ssh/config -o UserKnownHostsFile=testData/app-with-remote-base-test1/.ssh/known_hosts"
-	env, err = setupGitSSH(context.Background(), withRemoteBaseTestDir, app)
+	env, err := setupGitSSH(context.Background(), withRemoteBaseTestDir, app)
 	if err != nil {
 		t.Fatal(err)
 	}

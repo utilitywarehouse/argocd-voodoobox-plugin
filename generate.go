@@ -4,26 +4,83 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"io/fs"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 )
 
 func ensureBuild(ctx context.Context, cwd string, app applicationInfo) (string, error) {
-	c, err := setupGitSSH(ctx, cwd, app)
+	// Even when there is no git SSH secret defined, we still override the
+	// git ssh command (pointing the key to /dev/null) in order to avoid
+	// using ssh keys in default system locations and to surface the error
+	// if bases over ssh have been configured.
+	sshCmdEnv := `GIT_SSH_COMMAND=ssh -q -F none -o IdentitiesOnly=yes -o IdentityFile=/dev/null -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no`
+
+	kFiles, err := findKustomizeFiles(cwd)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("unable to ge kustomize files paths err:%s", err)
 	}
 
-	//
-	env := os.Environ()
+	if len(kFiles) == 0 {
+		return "", fmt.Errorf("only kustomize base is supported")
+	}
 
-	env = append(env, c)
+	hasRemoteBase, err := hasSSHRemoteBaseURL(kFiles)
+	if err != nil {
+		return "", fmt.Errorf("unable to look for ssh protocol err:%s", err)
+	}
+
+	if hasRemoteBase {
+		sshCmdEnv, err = setupGitSSH(ctx, cwd, app)
+		if err != nil {
+			return "", err
+		}
+	}
+
+	// setup env for Kustomize command
+	env := []string{
+		fmt.Sprintf("PATH=%s", os.Getenv("PATH")),
+	}
+
+	env = append(env, sshCmdEnv)
 	// Set HOME to cwd, this means that SSH should not pick up any
 	// local SSH keys and use them for cloning
 	env = append(env, fmt.Sprintf("HOME=%s", cwd))
 
 	return runKustomizeBuild(ctx, cwd, env)
+}
+
+func findKustomizeFiles(cwd string) ([]string, error) {
+	kFiles := []string{}
+
+	err := filepath.WalkDir(cwd, func(path string, info fs.DirEntry, err error) error {
+		if filepath.Base(path) == "kustomization.yaml" ||
+			filepath.Base(path) == "kustomization.yml" ||
+			filepath.Base(path) == "Kustomization" {
+			kFiles = append(kFiles, path)
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return kFiles, nil
+}
+
+func hasSSHRemoteBaseURL(kFiles []string) (bool, error) {
+	for _, k := range kFiles {
+		data, err := os.ReadFile(k)
+		if err != nil {
+			return false, err
+		}
+		if bytes.Contains(data, []byte("ssh://")) {
+			return true, nil
+		}
+	}
+	return false, nil
 }
 
 // runKustomizeBuild will run `kustomize build` cmd and return generated yaml or error
