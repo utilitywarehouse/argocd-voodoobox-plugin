@@ -75,18 +75,20 @@ func main() {
 	name of a namespace where secret resource containing strongbox keyring is located`,
 					},
 					&cli.StringFlag{
-						Name:    "app-strongbox-secret-name",
-						EnvVars: []string{argocdAppEnvPrefix + "STRONGBOX_SECRET_NAME"},
-						Usage: `set 'STRONGBOX_SECRET_NAME' in argocd application as plugin ENV. the value should be the
-	name of a secret resource containing strongbox keyring used to encrypt app secrets`,
-						Value: "argocd-strongbox-keyring",
-					},
-					&cli.StringFlag{
 						Name:    "app-strongbox-secret-key",
 						EnvVars: []string{argocdAppEnvPrefix + "STRONGBOX_SECRET_KEY"},
 						Usage: `set 'STRONGBOX_KEYRING_KEY' in argocd application as plugin ENV, the value should be the
 	name of the secret data key which contains a valid strongbox keyring file`,
 						Value: ".strongbox_keyring",
+					},
+					// do not set `EnvVars` for secret name flag
+					// To keep service account's permission minimum name of the secret is static across ALL applications.
+					// this value should only be set by admins of argocd as part of plugin setup
+					&cli.StringFlag{
+						Name: "app-strongbox-secret-name",
+						Usage: `the value should be the name of a secret resource containing strongbox keyring used to 
+encrypt app secrets. name will be same across all applications`,
+						Value: "argocd-strongbox-keyring",
 					},
 					&cli.StringFlag{
 						Name: "secret-allowed-namespaces-annotation",
@@ -133,11 +135,14 @@ func main() {
 						Usage: `set 'GIT_SSH_SECRET_NAMESPACE' in argocd application as plugin ENV. the value should be the
 	name of a namespace where secret resource containing ssh keys are located`,
 					},
+					// do not set `EnvVars` for secret name flag
+					// To keep service account's permission minimum name of the secret is static across ALL applications.
+					// this value should only be set by admins of argocd as part of plugin setup
 					&cli.StringFlag{
-						Name:    "app-git-ssh-secret-name",
-						EnvVars: []string{argocdAppEnvPrefix + "GIT_SSH_SECRET_NAME"},
-						Usage: `set 'GIT_SSH_SECRET_NAME' in argocd application as plugin ENV. the value should be the
-	name of a secret resource containing ssh keys used for fetching remote kustomize bases from private repositories`,
+						Name: "app-git-ssh-secret-name",
+						Usage: `the value should be the name of a secret resource containing ssh keys used for 
+fetching remote kustomize bases from private repositories. name will be same across all applications`,
+						Value: "argocd-git-ssh",
 					},
 					&cli.StringFlag{
 						Name: "secret-allowed-namespaces-annotation",
