@@ -24,7 +24,7 @@ func ensureBuild(ctx context.Context, cwd string, app applicationInfo) (string, 
 	}
 
 	if len(kFiles) == 0 {
-		return "", fmt.Errorf("only kustomize base is supported")
+		return findAndReadYamlFiles(cwd)
 	}
 
 	hasRemoteBase, err := hasSSHRemoteBaseURL(kFiles)
@@ -105,4 +105,23 @@ func runKustomizeBuild(ctx context.Context, cwd string, env []string) (string, e
 	}
 
 	return stdout.String(), nil
+}
+
+func findAndReadYamlFiles(cwd string) (string, error) {
+	var content string
+	err := filepath.WalkDir(cwd, func(path string, info fs.DirEntry, err error) error {
+		if filepath.Ext(path) == ".yaml" || filepath.Base(path) == ".yml" {
+			data, err := os.ReadFile(path)
+			if err != nil {
+				return fmt.Errorf("unable to read file %s err:%s", path, err)
+			}
+			content += fmt.Sprintf("%s\n---\n", data)
+		}
+		return nil
+	})
+	if err != nil {
+		return "", err
+	}
+
+	return content, nil
 }
