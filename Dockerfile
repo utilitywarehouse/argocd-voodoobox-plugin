@@ -3,7 +3,7 @@ FROM golang:1 AS build
 
 ENV \
   STRONGBOX_VERSION=1.0.1 \
-  KUSTOMIZE_VERSION=v4.5.5
+  KUSTOMIZE_VERSION=v5.0.0
 
 RUN os=$(go env GOOS) && arch=$(go env GOARCH) \
   && curl -Ls https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize/${KUSTOMIZE_VERSION}/kustomize_${KUSTOMIZE_VERSION}_${os}_${arch}.tar.gz \
