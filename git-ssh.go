@@ -29,7 +29,7 @@ const (
 
 var (
 	reKeyName            = regexp.MustCompile(`#.*?argocd-voodoobox-plugin:\s*?(?P<keyName>\w+)`)
-	reRepoAddressWithSSH = regexp.MustCompile(`(?P<beginning>^\s*-\s*ssh:\/\/)(?P<domain>\w.+?)(?P<repoDetails>\/.*$)`)
+	reRepoAddressWithSSH = regexp.MustCompile(`(?P<beginning>^\s*-\s*ssh:\/\/)(?P<user>\w.+?@)?(?P<domain>\w.+?)(?P<repoDetails>[\/:].*$)`)
 )
 
 func setupGitSSH(ctx context.Context, cwd string, app applicationInfo) (string, error) {
@@ -164,13 +164,14 @@ func updateRepoBaseAddresses(in io.Reader) (map[string]string, []byte, error) {
 		case keyName != "" && reRepoAddressWithSSH.MatchString(l):
 			// If Key if found replace domain
 			sections := reRepoAddressWithSSH.FindStringSubmatch(l)
-			if len(sections) != 4 {
+			if len(sections) != 4 && len(sections) != 5 {
 				return nil, nil, fmt.Errorf("error parsing remote base url")
 			}
 			domain := sections[reRepoAddressWithSSH.SubexpIndex("domain")]
 			keyedDomains[keyName] = domain
 
 			l = sections[reRepoAddressWithSSH.SubexpIndex("beginning")] +
+				sections[reRepoAddressWithSSH.SubexpIndex("user")] +
 				keyName + "_" + strings.ReplaceAll(domain, ".", "_") +
 				sections[reRepoAddressWithSSH.SubexpIndex("repoDetails")]
 

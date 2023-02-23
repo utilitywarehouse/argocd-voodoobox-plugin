@@ -36,11 +36,14 @@ resources:
   # argocd-voodoobox-plugin: key_a
   - ssh://github.com/org/repo1//manifests/lab-foo?ref=master
   # argocd-voodoobox-plugin:keyD
-  - ssh://github.com/org/repo3//manifests/lab-zoo?ref=dev
+  - ssh://git@github.com/org/repo3//manifests/lab-zoo?ref=dev
   # argocd-voodoobox-plugin: sshKeyB
   - ssh://gitlab.io/org/repo2//manifests/lab-bar?ref=main
   # argocd-voodoobox-plugin:  key_c
   - ssh://bitbucket.org/org/repo3//manifests/lab-zoo?ref=dev
+  # scp github url with git suffix
+  # argocd-voodoobox-plugin:  key_e
+  - ssh://git@github.com:someorg/somerepo.git/somedir
 `)},
 			wantOut: []byte(`apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
@@ -51,17 +54,21 @@ resources:
   # argocd-voodoobox-plugin: key_a
   - ssh://key_a_github_com/org/repo1//manifests/lab-foo?ref=master
   # argocd-voodoobox-plugin:keyD
-  - ssh://keyD_github_com/org/repo3//manifests/lab-zoo?ref=dev
+  - ssh://git@keyD_github_com/org/repo3//manifests/lab-zoo?ref=dev
   # argocd-voodoobox-plugin: sshKeyB
   - ssh://sshKeyB_gitlab_io/org/repo2//manifests/lab-bar?ref=main
   # argocd-voodoobox-plugin:  key_c
   - ssh://key_c_bitbucket_org/org/repo3//manifests/lab-zoo?ref=dev
+  # scp github url with git suffix
+  # argocd-voodoobox-plugin:  key_e
+  - ssh://git@key_e_github_com:someorg/somerepo.git/somedir
 `),
 			wantKeyMap: map[string]string{
 				"key_a":   "github.com",
 				"sshKeyB": "gitlab.io",
 				"key_c":   "bitbucket.org",
 				"keyD":    "github.com",
+				"key_e":   "github.com",
 			},
 		}, {
 			name: "valid-with-empty-line",
