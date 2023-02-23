@@ -199,8 +199,8 @@ func constructSSHConfig(keyFilePaths map[string]string, keyedDomain map[string]s
 			return nil, fmt.Errorf("unable to find path for key:%s, please make sure all referenced keys are added to git ssh secret", keyName)
 		}
 
-		keyedDomain := keyName + "_" + strings.ReplaceAll(domain, ".", "_")
-		hostFragments = append(hostFragments, fmt.Sprintf(hostFragment, keyedDomain, domain, keyFilePath))
+		host := keyName + "_" + strings.ReplaceAll(domain, ".", "_")
+		hostFragments = append(hostFragments, fmt.Sprintf(hostFragment, host, domain, keyFilePath))
 	}
 	if len(hostFragments) == 0 {
 		return nil, fmt.Errorf("keys are not referenced, please reference keys on remote base url in kustomize file")
