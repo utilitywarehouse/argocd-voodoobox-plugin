@@ -36,11 +36,16 @@ resources:
   # argocd-voodoobox-plugin: key_a
   - ssh://github.com/org/repo1//manifests/lab-foo?ref=master
   # argocd-voodoobox-plugin:keyD
-  - ssh://github.com/org/repo3//manifests/lab-zoo?ref=dev
+  - ssh://git@github.com/org/repo3//manifests/lab-zoo?ref=dev
   # argocd-voodoobox-plugin: sshKeyB
   - ssh://gitlab.io/org/repo2//manifests/lab-bar?ref=main
   # argocd-voodoobox-plugin:  key_c
   - ssh://bitbucket.org/org/repo3//manifests/lab-zoo?ref=dev
+  # scp github url with git suffix
+  # argocd-voodoobox-plugin:  key_e
+  - ssh://git@github.com:someorg/somerepo.git/somedir
+  # argocd-voodoobox-plugin:  key_f
+  - git@github.com:owner/repo
 `)},
 			wantOut: []byte(`apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
@@ -51,17 +56,24 @@ resources:
   # argocd-voodoobox-plugin: key_a
   - ssh://key_a_github_com/org/repo1//manifests/lab-foo?ref=master
   # argocd-voodoobox-plugin:keyD
-  - ssh://keyD_github_com/org/repo3//manifests/lab-zoo?ref=dev
+  - ssh://git@keyD_github_com/org/repo3//manifests/lab-zoo?ref=dev
   # argocd-voodoobox-plugin: sshKeyB
   - ssh://sshKeyB_gitlab_io/org/repo2//manifests/lab-bar?ref=main
   # argocd-voodoobox-plugin:  key_c
   - ssh://key_c_bitbucket_org/org/repo3//manifests/lab-zoo?ref=dev
+  # scp github url with git suffix
+  # argocd-voodoobox-plugin:  key_e
+  - ssh://git@key_e_github_com:someorg/somerepo.git/somedir
+  # argocd-voodoobox-plugin:  key_f
+  - git@key_f_github_com:owner/repo
 `),
 			wantKeyMap: map[string]string{
 				"key_a":   "github.com",
 				"sshKeyB": "gitlab.io",
 				"key_c":   "bitbucket.org",
 				"keyD":    "github.com",
+				"key_e":   "github.com",
+				"key_f":   "github.com",
 			},
 		}, {
 			name: "valid-with-empty-line",
@@ -192,6 +204,77 @@ resources:
 			}
 			if diff := cmp.Diff(tt.wantOut, gotOut); diff != "" {
 				t.Errorf("updateRepoBaseAddresses() output mismatch (-want +got):\n%s", diff)
+			}
+		})
+	}
+}
+
+func Test_replaceDomainWithConfigHostName(t *testing.T) {
+	type args struct {
+		original string
+		keyName  string
+	}
+	tests := []struct {
+		name    string
+		args    args
+		url     string
+		domain  string
+		wantErr bool
+	}{
+		{
+			"empty",
+			args{"", ""},
+			"", "", true,
+		}, {
+			"non-ssh",
+			args{" - github.com/org/open1//manifests/lab-foo?ref=master", "keyA"},
+			"", "", true,
+		}, {
+			"valid",
+			args{" - ssh://github.com/org/repo1//manifests/lab-foo?ref=master", "keyB"},
+			" - ssh://keyB_github_com/org/repo1//manifests/lab-foo?ref=master", "github.com", false,
+		}, {
+			"valid with git user",
+			args{" - ssh://git@github.com/org/repo3//manifests/lab-zoo?ref=dev", "keyC"},
+			" - ssh://git@keyC_github_com/org/repo3//manifests/lab-zoo?ref=dev", "github.com", false,
+		}, {
+			"valid with diff user",
+			args{" - ssh://user1@github.com/org/repo3//manifests/lab-zoo?ref=dev", "keyC"},
+			" - ssh://user1@keyC_github_com/org/repo3//manifests/lab-zoo?ref=dev", "github.com", false,
+		}, {
+			"valid diff domain",
+			args{" - ssh://gitlab.io/org/repo2//manifests/lab-bar?ref=main", "keyD"},
+			" - ssh://keyD_gitlab_io/org/repo2//manifests/lab-bar?ref=main", "gitlab.io", false,
+		}, {
+			"valid diff domain2",
+			args{" - ssh://bitbucket.org/org/repo3//manifests/lab-zoo?ref=dev", "keyE"},
+			" - ssh://keyE_bitbucket_org/org/repo3//manifests/lab-zoo?ref=dev", "bitbucket.org", false,
+		}, {
+			"valid with :",
+			args{" - ssh://git@github.com:someorg/somerepo.git/somedir", "keyF"},
+			" - ssh://git@keyF_github_com:someorg/somerepo.git/somedir", "github.com", false,
+		}, {
+			"valid without ssh",
+			args{" - git@github.com:someorg/somerepo.git/somedir", "keyG"},
+			" - git@keyG_github_com:someorg/somerepo.git/somedir", "github.com", false,
+		}, {
+			"valid without ssh and diff user",
+			args{" - bob@github.com:someorg/somerepo.git/somedir", "keyG"},
+			" - bob@keyG_github_com:someorg/somerepo.git/somedir", "github.com", false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, got1, err := replaceDomainWithConfigHostName(tt.args.original, tt.args.keyName)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("replaceDomainWithConfigHostName() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if got != tt.url {
+				t.Errorf("replaceDomainWithConfigHostName() got = %v, want %v", got, tt.url)
+			}
+			if got1 != tt.domain {
+				t.Errorf("replaceDomainWithConfigHostName() got1 = %v, want %v", got1, tt.domain)
 			}
 		})
 	}

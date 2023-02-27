@@ -28,7 +28,7 @@ USER root
 ENV ARGOCD_USER_ID=999
 
 RUN adduser -S -H -u $ARGOCD_USER_ID argocd \
-      && apk --no-cache add git git-lfs
+      && apk --no-cache add git openssh-client git-lfs
 
 COPY --from=build \
   /usr/local/bin/kustomize \

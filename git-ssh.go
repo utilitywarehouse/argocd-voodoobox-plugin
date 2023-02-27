@@ -28,8 +28,8 @@ const (
 )
 
 var (
-	reKeyName            = regexp.MustCompile(`#.*?argocd-voodoobox-plugin:\s*?(?P<keyName>\w+)`)
-	reRepoAddressWithSSH = regexp.MustCompile(`(?P<beginning>^\s*-\s*ssh:\/\/)(?P<domain>\w.+?)(?P<repoDetails>\/.*$)`)
+	reKeyName        = regexp.MustCompile(`#.*?argocd-voodoobox-plugin:\s*?(?P<keyName>\w+)`)
+	reRepoURLWithSSH = regexp.MustCompile(`(?P<beginning>^\s*-\s*(?:ssh:\/\/)?)(?P<user>\w.+?@)?(?P<domain>\w.+?)(?P<repoDetails>[\/:].*$)`)
 )
 
 func setupGitSSH(ctx context.Context, cwd string, app applicationInfo) (string, error) {
@@ -154,25 +154,22 @@ func updateRepoBaseAddresses(in io.Reader) (map[string]string, []byte, error) {
 				keyName = s[reKeyName.SubexpIndex("keyName")]
 			}
 
-		case keyName != "" && !reRepoAddressWithSSH.MatchString(l):
-			return nil, nil, fmt.Errorf("found key reference in comment but next remote base url doesn't contain ssh://")
+		case keyName != "" && !reRepoURLWithSSH.MatchString(l):
+			return nil, nil, fmt.Errorf("found key reference in comment but next remote base url is not a valid SSH URL")
 
 		// referencing key is not mandatory since only 1 key can be used for all private base
 		// case keyName == "" && reRepoAddressWithSSH.MatchString(l):
 		// 	return nil, nil, fmt.Errorf("found remote base url with ssh protocol without referenced key comment above")
 
-		case keyName != "" && reRepoAddressWithSSH.MatchString(l):
+		case keyName != "" && reRepoURLWithSSH.MatchString(l):
 			// If Key if found replace domain
-			sections := reRepoAddressWithSSH.FindStringSubmatch(l)
-			if len(sections) != 4 {
+			new, domain, err := replaceDomainWithConfigHostName(l, keyName)
+			if err != nil {
 				return nil, nil, fmt.Errorf("error parsing remote base url")
 			}
-			domain := sections[reRepoAddressWithSSH.SubexpIndex("domain")]
-			keyedDomains[keyName] = domain
 
-			l = sections[reRepoAddressWithSSH.SubexpIndex("beginning")] +
-				keyName + "_" + strings.ReplaceAll(domain, ".", "_") +
-				sections[reRepoAddressWithSSH.SubexpIndex("repoDetails")]
+			l = new
+			keyedDomains[keyName] = domain
 
 			keyName = ""
 		}
@@ -182,6 +179,28 @@ func updateRepoBaseAddresses(in io.Reader) (map[string]string, []byte, error) {
 	}
 
 	return keyedDomains, out, nil
+}
+
+func replaceDomainWithConfigHostName(original string, keyName string) (string, string, error) {
+	sections := reRepoURLWithSSH.FindStringSubmatch(original)
+	if len(sections) != 4 && len(sections) != 5 {
+		return "", "", fmt.Errorf("error parsing remote base url")
+	}
+
+	// URL should be either ssh:// or git@domain.com
+	// need to do check because in our regex both are optional
+	if !strings.Contains(sections[reRepoURLWithSSH.SubexpIndex("beginning")], "ssh://") &&
+		sections[reRepoURLWithSSH.SubexpIndex("user")] == "" {
+		return "", "", fmt.Errorf("private remote URL should either contain ssh:// or user@ i.e. git@domain")
+	}
+
+	domain := sections[reRepoURLWithSSH.SubexpIndex("domain")]
+	newURL := sections[reRepoURLWithSSH.SubexpIndex("beginning")] +
+		sections[reRepoURLWithSSH.SubexpIndex("user")] +
+		keyName + "_" + strings.ReplaceAll(domain, ".", "_") +
+		sections[reRepoURLWithSSH.SubexpIndex("repoDetails")]
+
+	return newURL, domain, nil
 }
 
 func constructSSHConfig(keyFilePaths map[string]string, keyedDomain map[string]string) ([]byte, error) {
@@ -198,8 +217,8 @@ func constructSSHConfig(keyFilePaths map[string]string, keyedDomain map[string]s
 			return nil, fmt.Errorf("unable to find path for key:%s, please make sure all referenced keys are added to git ssh secret", keyName)
 		}
 
-		keyedDomain := keyName + "_" + strings.ReplaceAll(domain, ".", "_")
-		hostFragments = append(hostFragments, fmt.Sprintf(hostFragment, keyedDomain, domain, keyFilePath))
+		host := keyName + "_" + strings.ReplaceAll(domain, ".", "_")
+		hostFragments = append(hostFragments, fmt.Sprintf(hostFragment, host, domain, keyFilePath))
 	}
 	if len(hostFragments) == 0 {
 		return nil, fmt.Errorf("keys are not referenced, please reference keys on remote base url in kustomize file")
