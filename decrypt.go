@@ -46,6 +46,10 @@ func ensureDecryption(ctx context.Context, cwd string, app applicationInfo) erro
 	}
 	keyRing.Close()
 
+	if encrypted, _ := hasEncryptedFiles(keyRing.Name()); encrypted == true {
+		return fmt.Errorf("Unable to read Strongbox keyring file: file is encrypted")
+	}
+
 	if err := runStrongboxDecryption(ctx, cwd, keyRing.Name()); err != nil {
 		return fmt.Errorf("unable to decrypt err:%s", err)
 	}
