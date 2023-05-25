@@ -13,8 +13,10 @@ import (
 )
 
 var (
-	encryptedFilePrefix   = []byte("# STRONGBOX ENCRYPTED RESOURCE")
-	errEncryptedFileFound = errors.New("encrypted file found")
+	encryptedFilePrefix      = []byte("# STRONGBOX ENCRYPTED RESOURCE")
+	keyFilePrefix            = []byte("keyentries:")
+	errEncryptedFileFound    = errors.New("encrypted file found")
+	errKeyFilePrefixNotFound = errors.New("missing 'keyentries:' prefix")
 )
 
 func ensureDecryption(ctx context.Context, cwd string, app applicationInfo) error {
@@ -48,6 +50,10 @@ func ensureDecryption(ctx context.Context, cwd string, app applicationInfo) erro
 
 	if encrypted, _ := hasEncryptedFiles(keyRing.Name()); encrypted == true {
 		return fmt.Errorf("Unable to read Strongbox keyring file: file is encrypted")
+	}
+
+	if err := isValidYaml(keyRing.Name()); err != nil {
+		return fmt.Errorf("Strongbox keyring file formatting error: %s", err)
 	}
 
 	if err := runStrongboxDecryption(ctx, cwd, keyRing.Name()); err != nil {
@@ -114,6 +120,20 @@ func hasEncryptedFiles(cwd string) (bool, error) {
 	}
 
 	return false, nil
+}
+
+// isValidYaml will verify the contents of a file are in valid YAML format
+func isValidYaml(file string) (error) {
+	fileBytes, err := os.ReadFile(file)
+	if err != nil {
+		return err
+	}
+
+	if found := bytes.Contains(fileBytes, keyFilePrefix); found == false {
+		return errKeyFilePrefixNotFound
+	}
+
+	return nil
 }
 
 // runStrongboxDecryption will try to decrypt files in cwd using given keyRing file
