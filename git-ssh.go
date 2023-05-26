@@ -204,12 +204,6 @@ func replaceDomainWithConfigHostName(original string, keyName string) (string, s
 }
 
 func constructSSHConfig(keyFilePaths map[string]string, keyedDomain map[string]string) ([]byte, error) {
-	if len(keyFilePaths) == 1 {
-		for _, keyFilePath := range keyFilePaths {
-			return []byte(fmt.Sprintf(singleKeyHostFragment, keyFilePath)), nil
-		}
-	}
-
 	hostFragments := []string{}
 	for keyName, domain := range keyedDomain {
 		keyFilePath, ok := keyFilePaths[keyName]
@@ -220,8 +214,11 @@ func constructSSHConfig(keyFilePaths map[string]string, keyedDomain map[string]s
 		host := keyName + "_" + strings.ReplaceAll(domain, ".", "_")
 		hostFragments = append(hostFragments, fmt.Sprintf(hostFragment, host, domain, keyFilePath))
 	}
-	if len(hostFragments) == 0 {
-		return nil, fmt.Errorf("keys are not referenced, please reference keys on remote base url in kustomize file")
+
+	if len(keyFilePaths) == 1 {
+		for _, keyFilePath := range keyFilePaths {
+			hostFragments = append(hostFragments, fmt.Sprintf(singleKeyHostFragment, keyFilePath))
+		}
 	}
 
 	return []byte(strings.Join(hostFragments, "\n")), nil
