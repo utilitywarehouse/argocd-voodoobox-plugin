@@ -36,7 +36,7 @@ func ensureDecryption(ctx context.Context, cwd string, app applicationInfo) erro
 	keyRingPath := filepath.Join(cwd, strongboxKeyRingFile)
 
 	// create strongbox keyRing file
-	if err := os.WriteFile(keyRingPath, d, 0400); err != nil {
+	if err := os.WriteFile(keyRingPath, d, 0600); err != nil {
 		return err
 	}
 
