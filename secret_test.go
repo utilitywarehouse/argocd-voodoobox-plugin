@@ -28,11 +28,28 @@ func Test_getSecret(t *testing.T) {
 					"argocd.voodoobox.plugin.io/allowed-namespaces": "bar,baz",
 				},
 			},
+			Data: map[string][]byte{
+				".strongbox_keyring": []byte(`keyentries:
+- description: foo-key
+key-id: xxxxxxxxx
+key: xxxxxxxxx`),
+			},
 		},
 		&v1.Secret{
 			ObjectMeta: metaV1.ObjectMeta{
 				Name:      "strongbox-secret",
 				Namespace: "baz",
+			},
+		},
+		&v1.Secret{
+			ObjectMeta: metaV1.ObjectMeta{
+				Name:      "strongbox-secret",
+				Namespace: "enc-bar",
+			},
+			Data: map[string][]byte{
+				".secret-file": []byte(`# STRONGBOX ENCRYPTED RESOURCE ; See https://github.com/uw-labs/strongbox
+xxxxxxxxx`),
+				"secret2": []byte("unencrypted data"),
 			},
 		},
 	)
@@ -67,6 +84,12 @@ func Test_getSecret(t *testing.T) {
 					Name: "strongbox-secret", Namespace: "foo",
 					Annotations: map[string]string{"argocd.voodoobox.plugin.io/allowed-namespaces": "bar,baz"},
 				},
+				Data: map[string][]byte{
+					".strongbox_keyring": []byte(`keyentries:
+- description: foo-key
+key-id: xxxxxxxxx
+key: xxxxxxxxx`),
+				},
 			},
 			false,
 		},
@@ -79,6 +102,12 @@ func Test_getSecret(t *testing.T) {
 		{
 			"sec ns missing secret",
 			args{destNamespace: "bar", secret: secretInfo{name: "strongbox-secret", namespace: "bazz"}},
+			nil,
+			true,
+		},
+		{
+			"secret is encrypted",
+			args{destNamespace: "enc-bar", secret: secretInfo{name: "strongbox-secret", namespace: "enc-bar"}},
 			nil,
 			true,
 		},
