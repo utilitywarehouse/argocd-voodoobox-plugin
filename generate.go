@@ -41,13 +41,14 @@ func ensureBuild(ctx context.Context, cwd string, app applicationInfo) (string, 
 
 	// setup env for Kustomize command
 	env := []string{
+		// Set HOME to cwd, this means that SSH should not pick up any
+		// local SSH keys and use them for cloning
+		fmt.Sprintf("HOME=%s", cwd),
+		fmt.Sprintf("STRONGBOX_HOME=%s", cwd),
 		fmt.Sprintf("PATH=%s", os.Getenv("PATH")),
 	}
 
 	env = append(env, sshCmdEnv)
-	// Set HOME to cwd, this means that SSH should not pick up any
-	// local SSH keys and use them for cloning
-	env = append(env, fmt.Sprintf("HOME=%s", cwd))
 
 	return runKustomizeBuild(ctx, cwd, env)
 }

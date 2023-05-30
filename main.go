@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"github.com/hashicorp/go-hclog"
 	"github.com/urfave/cli/v2"
@@ -13,6 +14,9 @@ import (
 const (
 	// argocd adds `ARGOCD_ENV_` prefix to all plugin envs configured in Applications
 	argocdAppEnvPrefix = "ARGOCD_ENV_"
+
+	strongboxKeyRingFile = ".strongbox_keyring"
+	SSHDirName           = ".ssh"
 )
 
 var (
@@ -176,6 +180,12 @@ fetching remote kustomize bases from private repositories. name will be same acr
 					if err != nil {
 						return err
 					}
+
+					// argocd creates a temp folder of plugin which gets deleted
+					// once plugin is existed still clean up secrets manually
+					// in case this behaviour changes
+					os.Remove(filepath.Join(cwd, strongboxKeyRingFile))
+					os.RemoveAll(filepath.Join(cwd, SSHDirName))
 
 					fmt.Printf("%s\n---\n", manifests)
 					return nil

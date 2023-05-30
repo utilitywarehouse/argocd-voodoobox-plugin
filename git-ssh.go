@@ -40,7 +40,7 @@ func setupGitSSH(ctx context.Context, cwd string, app applicationInfo) (string, 
 		return "", fmt.Errorf("unable to get secret err:%v", err)
 	}
 
-	sshDir := filepath.Join(cwd, ".ssh")
+	sshDir := filepath.Join(cwd, SSHDirName)
 	if err := os.Mkdir(sshDir, 0700); err != nil {
 		return "", fmt.Errorf("unable to create ssh config dir err:%s", err)
 	}
