@@ -41,13 +41,25 @@ func ensureBuild(ctx context.Context, cwd string, app applicationInfo) (string, 
 
 	// setup env for Kustomize command
 	env := []string{
+		// Set HOME to cwd, this means that SSH should not pick up any
+		// local SSH keys and use them for cloning
+		// HOME is also used to setup git config in current dir
+		fmt.Sprintf("HOME=%s", cwd),
 		fmt.Sprintf("PATH=%s", os.Getenv("PATH")),
 	}
 
 	env = append(env, sshCmdEnv)
-	// Set HOME to cwd, this means that SSH should not pick up any
-	// local SSH keys and use them for cloning
-	env = append(env, fmt.Sprintf("HOME=%s", cwd))
+
+	// setup git config if .strongbox_keyring exits
+	if _, err = os.Stat(filepath.Join(cwd, strongboxKeyRingFile)); err == nil {
+		// setup SB home for kustomize run
+		env = append(env, fmt.Sprintf("STRONGBOX_HOME=%s", cwd))
+
+		// getup git config via `strongbox -git-config`
+		if err := setupGitConfigForSB(ctx, cwd, env); err != nil {
+			return "", fmt.Errorf("unable setup git config for strongbox err:%s", err)
+		}
+	}
 
 	return runKustomizeBuild(ctx, cwd, env)
 }
@@ -81,6 +93,20 @@ func hasSSHRemoteBaseURL(kFiles []string) (bool, error) {
 		}
 	}
 	return false, nil
+}
+
+// setupGitConfigForSB will setup git filters to run strongbox
+func setupGitConfigForSB(ctx context.Context, cwd string, env []string) error {
+	s := exec.CommandContext(ctx, "strongbox", "-git-config")
+	s.Dir = cwd
+	s.Env = env
+
+	stderr, err := s.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("error running strongbox err:%s ", stderr)
+	}
+
+	return nil
 }
 
 // runKustomizeBuild will run `kustomize build` cmd and return generated yaml or error

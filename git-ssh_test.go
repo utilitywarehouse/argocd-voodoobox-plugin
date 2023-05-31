@@ -291,7 +291,6 @@ func Test_constructSSHConfig(t *testing.T) {
 		want    []string
 		wantErr bool
 	}{
-		{"empty", args{nil, nil}, nil, true},
 		{"single",
 			args{
 				keyFilePaths: map[string]string{
@@ -302,8 +301,26 @@ func Test_constructSSHConfig(t *testing.T) {
 			[]string{`Host *
     IdentitiesOnly yes
     IdentityFile path/to/this/key/key_a
-    User git
-`},
+    User git`},
+			false,
+		}, {"single-with-comment",
+			args{
+				keyFilePaths: map[string]string{
+					"key_a": "path/to/this/key/key_a",
+				},
+				keyedDomain: map[string]string{
+					"key_a": "github.com",
+				},
+			},
+			[]string{`Host key_a_github_com
+    HostName github.com
+    IdentitiesOnly yes
+    IdentityFile path/to/this/key/key_a
+    User git`,
+				`Host *
+    IdentitiesOnly yes
+    IdentityFile path/to/this/key/key_a
+    User git`},
 			false,
 		},
 		{"multiple-keys",

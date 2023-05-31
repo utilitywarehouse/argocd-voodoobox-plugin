@@ -33,20 +33,14 @@ func ensureDecryption(ctx context.Context, cwd string, app applicationInfo) erro
 		return err
 	}
 
-	// create temp strongbox keyRing file
-	keyRing, err := os.CreateTemp(cwd, ".strongbox-keyring-*")
-	if err != nil {
-		return fmt.Errorf("unable to create to temp file for strongbox keyring err:%s", err)
-	}
-	defer os.Remove(keyRing.Name())
+	keyRingPath := filepath.Join(cwd, strongboxKeyRingFile)
 
-	_, err = keyRing.Write(d)
-	if err != nil {
-		return fmt.Errorf("unable to write to temp strongbox keyring err:%s", err)
+	// create strongbox keyRing file
+	if err := os.WriteFile(keyRingPath, d, 0600); err != nil {
+		return err
 	}
-	keyRing.Close()
 
-	if err := runStrongboxDecryption(ctx, cwd, keyRing.Name()); err != nil {
+	if err := runStrongboxDecryption(ctx, cwd, keyRingPath); err != nil {
 		return fmt.Errorf("unable to decrypt err:%s", err)
 	}
 	return nil
