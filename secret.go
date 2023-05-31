@@ -20,7 +20,7 @@ func getSecret(ctx context.Context, destNamespace string, secret secretInfo) (*v
 		if err != nil {
 			return nil, fmt.Errorf("unable to get secret %s/%s err:%s", destNamespace, secret.name, err)
 		}
-		return isSecretEncrypted(sec)
+		return verifySecretEncrypted(sec)
 	}
 
 	sec, err := kubeClient.CoreV1().Secrets(secret.namespace).Get(ctx, secret.name, metaV1.GetOptions{})
@@ -31,7 +31,7 @@ func getSecret(ctx context.Context, destNamespace string, secret secretInfo) (*v
 	// check if app's destination namespace is allowed on given secret resource
 	for _, v := range strings.Split(sec.Annotations[secretAllowedNamespacesAnnotation], ",") {
 		if strings.TrimSpace(v) == destNamespace {
-			return isSecretEncrypted(sec)
+			return verifySecretEncrypted(sec)
 		}
 	}
 
@@ -41,9 +41,9 @@ func getSecret(ctx context.Context, destNamespace string, secret secretInfo) (*v
 
 // isSecretEncrypted will go through all keys of the secret passed
 // and error out if at least one of them is encrypted
-func isSecretEncrypted (sec *v1.Secret) (*v1.Secret, error) {
+func verifySecretEncrypted (sec *v1.Secret) (*v1.Secret, error) {
 	for k, v := range sec.Data{
-		if bytes.Contains(v, encryptedFilePrefix) {
+		if bytes.HasPrefix(v, encryptedFilePrefix) {
 			return nil, fmt.Errorf("secret %s/%s has an encrypted data for the key %s", sec.Namespace, sec.Name, k)
 		}
 	}
