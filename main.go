@@ -21,7 +21,7 @@ const (
 
 var (
 	kubeClient                        kubernetes.Interface
-	secretAllowedNamespacesAnnotation string
+	allowedNamespacesSecretAnnotation string
 
 	logger = hclog.New(&hclog.LoggerOptions{
 		Name: "argocd-voodoobox-plugin",
@@ -46,9 +46,9 @@ type secretInfo struct {
 	key       string
 }
 
-// following ENVs are set by argo-cd while running plugin commands
-// https://argo-cd.readthedocs.io/en/latest/user-guide/build-environment
-var commonFlags = []cli.Flag{
+var flags = []cli.Flag{
+	// following 2 ENVs are set by argo-cd while running plugin commands
+	// https://argo-cd.readthedocs.io/en/latest/user-guide/build-environment
 	// app-name is set by argo-cd as '<namespace>_<app-name>'
 	&cli.StringFlag{
 		Name:     "app-name",
@@ -62,48 +62,76 @@ var commonFlags = []cli.Flag{
 		Usage:    "destination application namespace ENV set by argocd",
 		Required: true,
 	},
+
+	&cli.StringFlag{
+		Name:    "allowed-namespaces-secret-annotation",
+		EnvVars: []string{"AVP_ALLOWED_NS_SECRET_ANNOTATION"},
+		Usage: `when shared secret is used this value is the annotation key to look for in secret 
+to get comma-separated list of all the namespaces that are allowed to use it`,
+		Destination: &allowedNamespacesSecretAnnotation,
+		Value:       "argocd.voodoobox.plugin.io/allowed-namespaces",
+	},
+
+	// strongbox secrets flags
+	&cli.StringFlag{
+		Name:    "app-strongbox-secret-namespace",
+		EnvVars: []string{argocdAppEnvPrefix + "STRONGBOX_SECRET_NAMESPACE"},
+		Usage: `set 'STRONGBOX_SECRET_NAMESPACE' in argocd application as plugin ENV. the value should be the
+name of a namespace where secret resource containing strongbox keyring is located`,
+	},
+	&cli.StringFlag{
+		Name:    "app-strongbox-secret-key",
+		EnvVars: []string{argocdAppEnvPrefix + "STRONGBOX_SECRET_KEY"},
+		Usage: `set 'STRONGBOX_KEYRING_KEY' in argocd application as plugin ENV, the value should be the
+name of the secret data key which contains a valid strongbox keyring file`,
+		Value: ".strongbox_keyring",
+	},
+	// do not set `EnvVars` for secret name flag
+	// To keep service account's permission minimum, the name of the secret is static across ALL applications.
+	// this value should only be set by admins of argocd as part of plugin setup
+	&cli.StringFlag{
+		Name: "app-strongbox-secret-name",
+		Usage: `the value should be the name of a secret resource containing strongbox keyring used to 
+encrypt app secrets. name will be same across all applications`,
+		Value: "argocd-voodoobox-strongbox-keyring",
+	},
+
+	// SSH secrets flags
+	&cli.StringFlag{
+		Name:    "app-git-ssh-secret-namespace",
+		EnvVars: []string{argocdAppEnvPrefix + "GIT_SSH_SECRET_NAMESPACE"},
+		Usage: `set 'GIT_SSH_SECRET_NAMESPACE' in argocd application as plugin ENV. the value should be the
+name of a namespace where secret resource containing ssh keys are located`,
+	},
+	// do not set `EnvVars` for secret name flag
+	// To keep service account's permission minimum, the name of the secret is static across ALL applications.
+	// this value should only be set by admins of argocd as part of plugin setup
+	&cli.StringFlag{
+		Name: "app-git-ssh-secret-name",
+		Usage: `the value should be the name of a secret resource containing ssh keys used for 
+fetching remote kustomize bases from private repositories. name will be same across all applications`,
+		Value: "argocd-voodoobox-git-ssh",
+	},
 }
 
 func main() {
 	app := &cli.App{
 		Commands: []*cli.Command{
-			// command to initialise application source directory
 			{
-				Name:  "decrypt",
-				Usage: "command to decrypt all encrypted files under application source directory",
-				Flags: append(commonFlags, []cli.Flag{
-					&cli.StringFlag{
-						Name:    "app-strongbox-secret-namespace",
-						EnvVars: []string{argocdAppEnvPrefix + "STRONGBOX_SECRET_NAMESPACE"},
-						Usage: `set 'STRONGBOX_SECRET_NAMESPACE' in argocd application as plugin ENV. the value should be the
-	name of a namespace where secret resource containing strongbox keyring is located`,
-					},
-					&cli.StringFlag{
-						Name:    "app-strongbox-secret-key",
-						EnvVars: []string{argocdAppEnvPrefix + "STRONGBOX_SECRET_KEY"},
-						Usage: `set 'STRONGBOX_KEYRING_KEY' in argocd application as plugin ENV, the value should be the
-	name of the secret data key which contains a valid strongbox keyring file`,
-						Value: ".strongbox_keyring",
-					},
-					// do not set `EnvVars` for secret name flag
-					// To keep service account's permission minimum, the name of the secret is static across ALL applications.
-					// this value should only be set by admins of argocd as part of plugin setup
-					&cli.StringFlag{
-						Name: "app-strongbox-secret-name",
-						Usage: `the value should be the name of a secret resource containing strongbox keyring used to 
-encrypt app secrets. name will be same across all applications`,
-						Value: "argocd-voodoobox-strongbox-keyring",
-					},
-					&cli.StringFlag{
-						Name: "secret-allowed-namespaces-annotation",
-						Usage: `when shared secret is used this value is the annotation key to look for in secret 
-	to get comma-separated list of all the namespaces that are allowed to use it`,
-						Destination: &secretAllowedNamespacesAnnotation,
-						Value:       "argocd.voodoobox.plugin.io/allowed-namespaces",
-					},
-				}...),
+				Name:  "generate",
+				Usage: "generate will decrypt all strongbox encrypted file and then run kustomize build to generate kube manifests",
+				Flags: flags,
 				Action: func(c *cli.Context) error {
-					var err error
+					cwd, err := os.Getwd()
+					if err != nil {
+						return fmt.Errorf("unable to get current working dir err:%s", err)
+					}
+
+					kubeClient, err = getKubeClient()
+					if err != nil {
+						return fmt.Errorf("unable to create kube clienset err:%s", err)
+					}
+
 					app := applicationInfo{
 						name:                 c.String("app-name"),
 						destinationNamespace: c.String("app-namespace"),
@@ -113,67 +141,13 @@ encrypt app secrets. name will be same across all applications`,
 						name:      c.String("app-strongbox-secret-name"),
 						key:       c.String("app-strongbox-secret-key"),
 					}
-
-					kubeClient, err = getKubeClient()
-					if err != nil {
-						return fmt.Errorf("unable to create kube clienset err:%s", err)
-					}
-
-					cwd, err := os.Getwd()
-					if err != nil {
-						return fmt.Errorf("unable to get current working dir err:%s", err)
-					}
-
-					return ensureDecryption(c.Context, cwd, app)
-				},
-			},
-
-			// command to generate manifests YAML
-			{
-				Name:  "generate",
-				Usage: "generate will run kustomize build to generate kube manifests",
-				Flags: append(commonFlags, []cli.Flag{
-					&cli.StringFlag{
-						Name:    "app-git-ssh-secret-namespace",
-						EnvVars: []string{argocdAppEnvPrefix + "GIT_SSH_SECRET_NAMESPACE"},
-						Usage: `set 'GIT_SSH_SECRET_NAMESPACE' in argocd application as plugin ENV. the value should be the
-	name of a namespace where secret resource containing ssh keys are located`,
-					},
-					// do not set `EnvVars` for secret name flag
-					// To keep service account's permission minimum, the name of the secret is static across ALL applications.
-					// this value should only be set by admins of argocd as part of plugin setup
-					&cli.StringFlag{
-						Name: "app-git-ssh-secret-name",
-						Usage: `the value should be the name of a secret resource containing ssh keys used for 
-fetching remote kustomize bases from private repositories. name will be same across all applications`,
-						Value: "argocd-voodoobox-git-ssh",
-					},
-					&cli.StringFlag{
-						Name: "secret-allowed-namespaces-annotation",
-						Usage: `when shared secret is used this value is the annotation key to look for in secret 
-	to get comma-separated list of all the namespaces that are allowed to use it`,
-						Destination: &secretAllowedNamespacesAnnotation,
-						Value:       "argocd.voodoobox.plugin.io/allowed-namespaces",
-					},
-				}...),
-				Action: func(c *cli.Context) error {
-					cwd, err := os.Getwd()
-					if err != nil {
-						return fmt.Errorf("unable to get current working dir err:%s", err)
-					}
-
-					kubeClient, err = getKubeClient()
-					if err != nil {
-						return fmt.Errorf("unable to create kube clienset err:%s", err)
-					}
-
-					app := applicationInfo{
-						name:                 c.String("app-name"),
-						destinationNamespace: c.String("app-namespace"),
-					}
 					app.gitSSHSecret = secretInfo{
 						namespace: c.String("app-git-ssh-secret-namespace"),
 						name:      c.String("app-git-ssh-secret-name"),
+					}
+
+					if err := ensureDecryption(c.Context, cwd, app); err != nil {
+						return err
 					}
 
 					manifests, err := ensureBuild(c.Context, cwd, app)

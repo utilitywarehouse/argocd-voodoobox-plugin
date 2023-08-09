@@ -142,7 +142,7 @@ func Test_getKeyRingData(t *testing.T) {
 }
 
 func Test_ensureDecryption(t *testing.T) {
-	secretAllowedNamespacesAnnotation = "argocd.voodoobox.plugin.io/allowed-namespaces"
+	allowedNamespacesSecretAnnotation = "argocd.voodoobox.plugin.io/allowed-namespaces"
 
 	// read keyring file
 	kr, err := os.ReadFile(encryptedTestDir1 + "/.keyRing")

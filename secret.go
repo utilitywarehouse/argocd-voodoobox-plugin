@@ -29,20 +29,20 @@ func getSecret(ctx context.Context, destNamespace string, secret secretInfo) (*v
 	}
 
 	// check if app's destination namespace is allowed on given secret resource
-	for _, v := range strings.Split(sec.Annotations[secretAllowedNamespacesAnnotation], ",") {
+	for _, v := range strings.Split(sec.Annotations[allowedNamespacesSecretAnnotation], ",") {
 		if strings.TrimSpace(v) == destNamespace {
 			return verifySecretEncrypted(sec)
 		}
 	}
 
 	return nil, fmt.Errorf(`secret "%s/%s" cannot be used in namespace "%s", the destination namespace must be listed in the '%s' annotation`,
-		secret.namespace, secret.name, destNamespace, secretAllowedNamespacesAnnotation)
+		secret.namespace, secret.name, destNamespace, allowedNamespacesSecretAnnotation)
 }
 
 // isSecretEncrypted will go through all keys of the secret passed
 // and error out if at least one of them is encrypted
-func verifySecretEncrypted (sec *v1.Secret) (*v1.Secret, error) {
-	for k, v := range sec.Data{
+func verifySecretEncrypted(sec *v1.Secret) (*v1.Secret, error) {
+	for k, v := range sec.Data {
 		if bytes.HasPrefix(v, encryptedFilePrefix) {
 			return nil, fmt.Errorf("secret %s/%s has an encrypted data for the key %s", sec.Namespace, sec.Name, k)
 		}
