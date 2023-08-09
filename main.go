@@ -63,6 +63,20 @@ var flags = []cli.Flag{
 		Required: true,
 	},
 
+	// following flags/envs should be set by admin as part of plugin config
+	// Global SSH key
+	&cli.StringFlag{
+		Name:    "global-git-ssh-key-file",
+		EnvVars: []string{"AVP_GLOBAL_GIT_SSH_KEY_FILE"},
+		Value:   "/etc/git-secret/ssh",
+		Usage:   "The path to git ssh key which will be used to setup GIT_SSH_COMMAND env.",
+	},
+	&cli.StringFlag{
+		Name:    "global-git-ssh-known-hosts-file",
+		EnvVars: []string{"AVP_GLOBAL_GIT_SSH_KNOWN_HOSTS_FILE"},
+		Value:   "/etc/git-secret/known_hosts",
+		Usage:   "The local path to the known hosts file used to setup GIT_SSH_COMMAND env.",
+	},
 	&cli.StringFlag{
 		Name:    "allowed-namespaces-secret-annotation",
 		EnvVars: []string{"AVP_ALLOWED_NS_SECRET_ANNOTATION"},
@@ -72,6 +86,7 @@ to get comma-separated list of all the namespaces that are allowed to use it`,
 		Value:       "argocd.voodoobox.plugin.io/allowed-namespaces",
 	},
 
+	// following envs comes from argocd application resource
 	// strongbox secrets flags
 	&cli.StringFlag{
 		Name:    "app-strongbox-secret-namespace",
@@ -132,6 +147,9 @@ func main() {
 						return fmt.Errorf("unable to create kube clienset err:%s", err)
 					}
 
+					globalKeyPath := c.String("global-git-ssh-key-file")
+					globalKnownHostFile := c.String("global-git-ssh-known-hosts-file")
+
 					app := applicationInfo{
 						name:                 c.String("app-name"),
 						destinationNamespace: c.String("app-namespace"),
@@ -150,7 +168,7 @@ func main() {
 						return err
 					}
 
-					manifests, err := ensureBuild(c.Context, cwd, app)
+					manifests, err := ensureBuild(c.Context, cwd, globalKeyPath, globalKnownHostFile, app)
 					if err != nil {
 						return err
 					}
