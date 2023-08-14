@@ -11,7 +11,7 @@ import (
 	"strings"
 )
 
-func ensureBuild(ctx context.Context, cwd string, globalKeyPath, globalKnownHostFile string, app applicationInfo) (string, error) {
+func ensureBuild(ctx context.Context, cwd string, app applicationInfo) (string, error) {
 	// Even when there is no git SSH secret defined, we still override the
 	// git ssh command (pointing the key to /dev/null) in order to avoid
 	// using ssh keys in default system locations and to surface the error
@@ -33,7 +33,7 @@ func ensureBuild(ctx context.Context, cwd string, globalKeyPath, globalKnownHost
 	}
 
 	if hasRemoteBase {
-		sshCmdEnv, err = setupGitSSH(ctx, cwd, globalKeyPath, globalKnownHostFile, app)
+		sshCmdEnv, err = setupGitSSH(ctx, cwd, app)
 		if err != nil {
 			return "", err
 		}

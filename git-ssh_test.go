@@ -284,7 +284,6 @@ func Test_constructSSHConfig(t *testing.T) {
 	type args struct {
 		keyFilePaths map[string]string
 		keyedDomain  map[string]string
-		globalKey    string
 	}
 	tests := []struct {
 		name    string
@@ -304,22 +303,7 @@ func Test_constructSSHConfig(t *testing.T) {
     IdentityFile path/to/this/key/key_a
     User git`},
 			false,
-		},
-		{"single-with-globalKey",
-			args{
-				keyFilePaths: map[string]string{
-					"key_a": "path/to/this/key/key_a",
-				},
-				keyedDomain: nil,
-				globalKey:   "path/to/global/key",
-			},
-			[]string{`Host *
-    IdentitiesOnly yes
-    IdentityFile path/to/global/key
-    User git`},
-			false,
-		},
-		{"single-with-comment",
+		}, {"single-with-comment",
 			args{
 				keyFilePaths: map[string]string{
 					"key_a": "path/to/this/key/key_a",
@@ -336,27 +320,6 @@ func Test_constructSSHConfig(t *testing.T) {
 				`Host *
     IdentitiesOnly yes
     IdentityFile path/to/this/key/key_a
-    User git`},
-			false,
-		},
-		{"single-with-comment-with-global-key",
-			args{
-				keyFilePaths: map[string]string{
-					"key_a": "path/to/this/key/key_a",
-				},
-				keyedDomain: map[string]string{
-					"key_a": "github.com",
-				},
-				globalKey: "path/to/global/key",
-			},
-			[]string{`Host key_a_github_com
-    HostName github.com
-    IdentitiesOnly yes
-    IdentityFile path/to/this/key/key_a
-    User git`,
-				`Host *
-    IdentitiesOnly yes
-    IdentityFile path/to/global/key
     User git`},
 			false,
 		},
@@ -394,34 +357,6 @@ func Test_constructSSHConfig(t *testing.T) {
     HostName github.com
     IdentitiesOnly yes
     IdentityFile path/to/this/key/keyD
-    User git`},
-			false,
-		},
-		{"multiple-keys-with-global-key",
-			args{
-				keyFilePaths: map[string]string{
-					"key_a":   "path/to/this/key/key_a",
-					"sshKeyB": "path/to/this/key/sshKeyB",
-				},
-				keyedDomain: map[string]string{
-					"key_a":   "github.com",
-					"sshKeyB": "gitlab.io",
-				},
-				globalKey: "path/to/global/key",
-			},
-			[]string{`Host key_a_github_com
-    HostName github.com
-    IdentitiesOnly yes
-    IdentityFile path/to/this/key/key_a
-    User git`,
-				`Host sshKeyB_gitlab_io
-    HostName gitlab.io
-    IdentitiesOnly yes
-    IdentityFile path/to/this/key/sshKeyB
-    User git`,
-				`Host *
-    IdentitiesOnly yes
-    IdentityFile path/to/global/key
     User git`},
 			false,
 		},
@@ -479,7 +414,7 @@ func Test_constructSSHConfig(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := constructSSHConfig(tt.args.keyFilePaths, tt.args.keyedDomain, tt.args.globalKey)
+			got, err := constructSSHConfig(tt.args.keyFilePaths, tt.args.keyedDomain)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("constructSSHConfig() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -488,9 +423,8 @@ func Test_constructSSHConfig(t *testing.T) {
 				t.Errorf("constructSSHConfig() got unexpected output got = %s", got)
 				return
 			}
-
+			// since map is used to construct config it will be different all the time
 			for _, w := range tt.want {
-				// since map is used to construct config it will be different all the time
 				if !bytes.Contains(got, []byte(w)) {
 					t.Errorf("constructSSHConfig() %s\n\n ** missing from config **\n\n %s\n", w, got)
 				}
@@ -525,7 +459,7 @@ func Test_setupGitSSH(t *testing.T) {
 			name: "argocd-voodoobox-git-ssh",
 		},
 	}
-	_, err := setupGitSSH(context.Background(), withRemoteBaseTestDir, "", "", withOutSecret)
+	_, err := setupGitSSH(context.Background(), withRemoteBaseTestDir, withOutSecret)
 	if err == nil {
 		t.Fatal("expecting error here for missing secret from foo-bar NS")
 	}
@@ -538,8 +472,8 @@ func Test_setupGitSSH(t *testing.T) {
 		},
 	}
 
-	wnatEnv := "GIT_SSH_COMMAND=ssh -q -F testData/app-with-remote-base-test1/.ssh/config -o UserKnownHostsFile=path/to/global/known_hosts -o UserKnownHostsFile=testData/app-with-remote-base-test1/.ssh/known_hosts"
-	env, err := setupGitSSH(context.Background(), withRemoteBaseTestDir, "path/to/global/key", "path/to/global/known_hosts", app)
+	wnatEnv := "GIT_SSH_COMMAND=ssh -q -F testData/app-with-remote-base-test1/.ssh/config -o UserKnownHostsFile=testData/app-with-remote-base-test1/.ssh/known_hosts"
+	env, err := setupGitSSH(context.Background(), withRemoteBaseTestDir, app)
 	if err != nil {
 		t.Fatal(err)
 	}
