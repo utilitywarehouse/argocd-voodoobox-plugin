@@ -57,4 +57,4 @@ require (
 )
 
 // https://github.com/kubernetes/client-go/issues/1084#issuecomment-1584750974
-replace k8s.io/client-go => k8s.io/client-go v0.28.0-alpha.2
+replace k8s.io/client-go => k8s.io/client-go v0.28.0-rc.1
