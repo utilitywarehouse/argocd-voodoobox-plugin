@@ -68,14 +68,12 @@ var flags = []cli.Flag{
 	&cli.StringFlag{
 		Name:    "global-git-ssh-key-file",
 		EnvVars: []string{"AVP_GLOBAL_GIT_SSH_KEY_FILE"},
-		Value:   "/etc/git-secret/ssh",
-		Usage:   "The path to git ssh key which will be used to setup GIT_SSH_COMMAND env.",
+		Usage:   "The path to git ssh key file which will be used as global ssh key to fetch kustomize base from private repo for all application",
 	},
 	&cli.StringFlag{
 		Name:    "global-git-ssh-known-hosts-file",
 		EnvVars: []string{"AVP_GLOBAL_GIT_SSH_KNOWN_HOSTS_FILE"},
-		Value:   "/etc/git-secret/known_hosts",
-		Usage:   "The local path to the known hosts file used to setup GIT_SSH_COMMAND env.",
+		Usage:   "The path to git known hosts file which will be used as with global ssh key to fetch kustomize base from private repo for all application",
 	},
 	&cli.StringFlag{
 		Name:    "allowed-namespaces-secret-annotation",
