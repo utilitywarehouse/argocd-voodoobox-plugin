@@ -3,12 +3,16 @@ package main
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 
 	v1 "k8s.io/api/core/v1"
+	kErrors "k8s.io/apimachinery/pkg/api/errors"
 	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
+
+var errNotFound = errors.New("not found")
 
 // getSecret reads kube secret from either destination NS or secret's NS
 // if different NS is used then it will verify that dest NS is allowed to read the secret
@@ -18,6 +22,9 @@ func getSecret(ctx context.Context, destNamespace string, secret secretInfo) (*v
 	if secret.namespace == "" || secret.namespace == destNamespace {
 		sec, err := kubeClient.CoreV1().Secrets(destNamespace).Get(ctx, secret.name, metaV1.GetOptions{})
 		if err != nil {
+			if kErrors.IsNotFound(err) {
+				return nil, fmt.Errorf("unable to get secret %s/%s err:%w", destNamespace, secret.name, errNotFound)
+			}
 			return nil, fmt.Errorf("unable to get secret %s/%s err:%s", destNamespace, secret.name, err)
 		}
 		return verifySecretEncrypted(sec)
@@ -25,6 +32,9 @@ func getSecret(ctx context.Context, destNamespace string, secret secretInfo) (*v
 
 	sec, err := kubeClient.CoreV1().Secrets(secret.namespace).Get(ctx, secret.name, metaV1.GetOptions{})
 	if err != nil {
+		if kErrors.IsNotFound(err) {
+			return nil, fmt.Errorf("unable to get secret %s/%s err:%w", destNamespace, secret.name, errNotFound)
+		}
 		return nil, fmt.Errorf("unable to get secret %s/%s err:%s", secret.namespace, secret.name, err)
 	}
 
