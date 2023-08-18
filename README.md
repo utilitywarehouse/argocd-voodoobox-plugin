@@ -3,16 +3,22 @@
 An Argo CD plugin to decrypt strongbox encrypted files and build Kubernetes resources. 
 plugin supports argocd version from 2.4 onwards and only same cluster deployments are supported.
 
-This plugin has 2 commands
-
-### `decrypt` 
-command will read kube secret containing keyring data and run strongbox decryption using this data. 
-if multiple keys are used to encrypt app secrets then this secret should contain all the keys.
+This plugin has 1 command
 
 ### `generate` 
-command will run kustomize build to generate kube resources's yaml strings. it will print this yaml stream to stdout.
+generate command does following 2 things
 
-Plugin support fetching remote base from private repositories, to do that user must create a secret with name `argocd-voodoobox-git-ssh`, 
+1) it will read kube secret containing keyring data and run strongbox decryption using this data. 
+if multiple keys are used to encrypt app secrets then this secret should contain all the keys.
+
+2) command will run kustomize build to generate kube resources's yaml strings. it will print this yaml stream to stdout.
+
+#### private repository
+
+To fetch remote base from private repository, admin can add global ssh key which will be used for ALL applications.
+
+
+user can also provide own ssh keys for an applications via secret with name `argocd-voodoobox-git-ssh`, 
 that contains one or more SSH keys that provide access to the private repositories that contain these bases. To use an SSH key for Kustomize bases, 
 the bases URL should be defined with the ssh:// scheme in kustomization.yaml and have a `# argocd-voodoobox-plugin: <key_file_name>` comment above it.
 if only 1 ssh key is used for ALL private repos then there is no need to specify this comment. 
@@ -128,22 +134,19 @@ data:
       allowConcurrency: true
       discover:
         fileName: "*"
-      init:
-        command: 
-          - argocd-voodoobox-plugin
-          - decrypt
-        args:
-          - "--app-strongbox-secret-name=argocd-voodoobox-strongbox-keyring"
-          - "--secret-allowed-namespaces-annotation=argocd.voodoobox.plugin.io/allowed-namespaces"
       generate:
         command:
           - argocd-voodoobox-plugin
           - generate
         args:
+          - "--global-git-ssh-key-file=/path/to/global/key"
+          - "--global-git-ssh-known-hosts-file=/path/to/global/khf"
+          - "--app-strongbox-secret-name=argocd-voodoobox-strongbox-keyring"
           - "--app-git-ssh-secret-name=argocd-voodoobox-git-ssh"
-          - "--secret-allowed-namespaces-annotation=argocd.voodoobox.plugin.io/allowed-namespaces"
+          - "--allowed-namespaces-secret-annotation=argocd.voodoobox.plugin.io/allowed-namespaces"
       lockRepo: false
 ```
+* Instead of setting up arguments via configMap we can also set corresponding ENVs on plugin side car 
 
 ### 2. patch `argocd-repo-server` deployment to add sidecar as shown
 volume from `cmp-plugin` configMap and mount it to `/home/argocd/cmp-server/config/plugin.yaml`
@@ -228,7 +231,9 @@ subjects:
 
 | app arguments/ENVs | default | example / explanation |
 |-|-|-|
-| --secret-allowed-namespaces-annotation | argocd.voodoobox.plugin.io/allowed-namespaces | when shared secret is used this value is the annotation key to look for in secret to get comma-separated list of all the namespaces that are allowed to use it |
+| --allowed-namespaces-secret-annotation | argocd.voodoobox.plugin.io/allowed-namespaces | when shared secret is used this value is the annotation key to look for in secret to get comma-separated list of all the namespaces that are allowed to use it |
+| --global-git-ssh-key-file | | The path to git ssh key file which will be used as global ssh key to fetch kustomize base from private repo for all application |
+| --global-git-ssh-known-hosts-file | | The path to git known hosts file which will be used as with global ssh key to fetch kustomize base from private repo for all application |
 | --app-strongbox-secret-name | argocd-voodoobox-strongbox-keyring | the value should be the name of a secret resource containing strongbox keyring used to encrypt app secrets. name will be same across all applications |
 | --app-git-ssh-secret-name | argocd-voodoobox-git-ssh | the value should be the name of a secret resource containing ssh keys used for fetching remote kustomize bases from private repositories. name will be same across all applications |
 | ARGOCD_APP_NAME | set by argocd | name of application |

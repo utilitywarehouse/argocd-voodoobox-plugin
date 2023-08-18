@@ -11,7 +11,7 @@ import (
 )
 
 func Test_getSecret(t *testing.T) {
-	secretAllowedNamespacesAnnotation = "argocd.voodoobox.plugin.io/allowed-namespaces"
+	allowedNamespacesSecretAnnotation = "argocd.voodoobox.plugin.io/allowed-namespaces"
 
 	kubeClient = fake.NewSimpleClientset(
 		&v1.Secret{

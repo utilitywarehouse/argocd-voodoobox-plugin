@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"io/fs"
@@ -32,58 +33,72 @@ var (
 	reRepoURLWithSSH = regexp.MustCompile(`(?P<beginning>^\s*-\s*(?:ssh:\/\/)?)(?P<user>\w.+?@)?(?P<domain>\w.+?)(?P<repoDetails>[\/:].*$)`)
 )
 
-func setupGitSSH(ctx context.Context, cwd string, app applicationInfo) (string, error) {
+func setupGitSSH(ctx context.Context, cwd, globalKeyPath, globalKnownHostFile string, app applicationInfo) (string, error) {
 	knownHostsFragment := `-o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no`
-
-	sec, err := getSecret(ctx, app.destinationNamespace, app.gitSSHSecret)
-	if err != nil {
-		return "", fmt.Errorf("unable to get secret err:%v", err)
-	}
 
 	sshDir := filepath.Join(cwd, SSHDirName)
 	if err := os.Mkdir(sshDir, 0700); err != nil {
 		return "", fmt.Errorf("unable to create ssh config dir err:%s", err)
 	}
+	sshConfigFilename := filepath.Join(sshDir, "config")
 
 	// keyFilePaths holds key name and path values
 	var keyFilePaths = make(map[string]string)
+	// keyFilePaths holds key name and domain it should be used for as values
+	var keyedDomain = make(map[string]string)
+	var userKnownHostFile string
 
-	// write ssh data to ssh dir
-	for k, v := range sec.Data {
-		if k == "known_hosts" {
-			if err := os.WriteFile(filepath.Join(sshDir, k), v, 0600); err != nil {
-				return "", fmt.Errorf("unable to write known_hosts to temp file err:%s", err)
+	// attempt to get secret with user's own ssh keys if not found continue with just global key
+	sec, err := getSecret(ctx, app.destinationNamespace, app.gitSSHSecret)
+	if err != nil && !errors.Is(err, errNotFound) {
+		return "", err
+	}
+
+	if sec != nil {
+		// write ssh data to ssh dir
+		for k, v := range sec.Data {
+			if k == "known_hosts" {
+				if err := os.WriteFile(filepath.Join(sshDir, k), v, 0600); err != nil {
+					return "", fmt.Errorf("unable to write known_hosts to temp file err:%s", err)
+				}
+				userKnownHostFile = sshDir + `/known_hosts`
+				continue
 			}
-			knownHostsFragment = fmt.Sprintf(`-o UserKnownHostsFile=%s/known_hosts`, sshDir)
-			continue
+			// if key is not known_hosts then its assumed to be private keys
+			kfn := filepath.Join(sshDir, k)
+			// if the file containing the SSH key does not have a
+			// newline at the end, ssh does not complain about it but
+			// the key will not work properly
+			if !bytes.HasSuffix(v, []byte("\n")) {
+				v = append(v, byte('\n'))
+			}
+			keyFilePaths[k] = kfn
+			if err := os.WriteFile(kfn, v, 0600); err != nil {
+				return "", fmt.Errorf("unable to write key to temp file err:%s", err)
+			}
 		}
-		// if key is not known_hosts then its assumed to be private keys
-		kfn := filepath.Join(sshDir, k)
-		// if the file containing the SSH key does not have a
-		// newline at the end, ssh does not complain about it but
-		// the key will not work properly
-		if !bytes.HasSuffix(v, []byte("\n")) {
-			v = append(v, byte('\n'))
-		}
-		keyFilePaths[k] = kfn
-		if err := os.WriteFile(kfn, v, 0600); err != nil {
-			return "", fmt.Errorf("unable to write key to temp file err:%s", err)
+
+		keyedDomain, err = processKustomizeFiles(cwd)
+		if err != nil {
+			return "", fmt.Errorf("unable to updated kustomize files err:%s", err)
 		}
 	}
 
-	keyedDomain, err := processKustomizeFiles(cwd)
-	if err != nil {
-		return "", fmt.Errorf("unable to updated kustomize files err:%s", err)
-	}
-
-	sshConfigFilename := filepath.Join(sshDir, "config")
-
-	body, err := constructSSHConfig(keyFilePaths, keyedDomain)
+	body, err := constructSSHConfig(keyFilePaths, keyedDomain, globalKeyPath)
 	if err != nil {
 		return "", err
 	}
 	if err := os.WriteFile(sshConfigFilename, body, 0600); err != nil {
 		return "", err
+	}
+
+	switch {
+	case globalKnownHostFile != "" && userKnownHostFile != "":
+		knownHostsFragment = `-o UserKnownHostsFile=` + globalKnownHostFile + ` -o UserKnownHostsFile=` + userKnownHostFile
+	case globalKnownHostFile != "":
+		knownHostsFragment = `-o UserKnownHostsFile=` + globalKnownHostFile
+	case userKnownHostFile != "":
+		knownHostsFragment = `-o UserKnownHostsFile=` + userKnownHostFile
 	}
 
 	return fmt.Sprintf(`GIT_SSH_COMMAND=ssh -q -F %s %s`, sshConfigFilename, knownHostsFragment), nil
@@ -203,7 +218,7 @@ func replaceDomainWithConfigHostName(original string, keyName string) (string, s
 	return newURL, domain, nil
 }
 
-func constructSSHConfig(keyFilePaths map[string]string, keyedDomain map[string]string) ([]byte, error) {
+func constructSSHConfig(keyFilePaths map[string]string, keyedDomain map[string]string, globalKeyPath string) ([]byte, error) {
 	hostFragments := []string{}
 	for keyName, domain := range keyedDomain {
 		keyFilePath, ok := keyFilePaths[keyName]
@@ -215,7 +230,12 @@ func constructSSHConfig(keyFilePaths map[string]string, keyedDomain map[string]s
 		hostFragments = append(hostFragments, fmt.Sprintf(hostFragment, host, domain, keyFilePath))
 	}
 
-	if len(keyFilePaths) == 1 {
+	if globalKeyPath != "" {
+		hostFragments = append(hostFragments, fmt.Sprintf(singleKeyHostFragment, globalKeyPath))
+	}
+
+	// if global key is not provided and  user provides only 1 key then also use that for all host
+	if len(keyFilePaths) == 1 && globalKeyPath == "" {
 		for _, keyFilePath := range keyFilePaths {
 			hostFragments = append(hostFragments, fmt.Sprintf(singleKeyHostFragment, keyFilePath))
 		}
