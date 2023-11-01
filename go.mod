@@ -7,7 +7,7 @@ require (
 	github.com/hashicorp/go-hclog v1.5.0
 	github.com/urfave/cli/v2 v2.25.7
 	k8s.io/api v0.29.0-alpha.0
-	k8s.io/apimachinery v0.29.0-alpha.1
+	k8s.io/apimachinery v0.29.0-alpha.2
 	k8s.io/client-go v1.5.2
 )
 
@@ -39,7 +39,7 @@ require (
 	github.com/xrash/smetrics v0.0.0-20201216005158-039620a65673 // indirect
 	golang.org/x/net v0.14.0 // indirect
 	golang.org/x/oauth2 v0.11.0 // indirect
-	golang.org/x/sys v0.11.0 // indirect
+	golang.org/x/sys v0.12.0 // indirect
 	golang.org/x/term v0.11.0 // indirect
 	golang.org/x/text v0.12.0 // indirect
 	golang.org/x/time v0.3.0 // indirect
