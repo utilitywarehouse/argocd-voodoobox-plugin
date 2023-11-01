@@ -3,7 +3,7 @@ module github.com/utilitywarehouse/argocd-voodoobox-plugin
 go 1.21
 
 require (
-	github.com/google/go-cmp v0.5.9
+	github.com/google/go-cmp v0.6.0
 	github.com/hashicorp/go-hclog v1.5.0
 	github.com/urfave/cli/v2 v2.25.7
 	k8s.io/api v0.29.0-alpha.0
