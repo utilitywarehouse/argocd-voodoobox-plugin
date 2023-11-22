@@ -24,12 +24,12 @@ func ensureDecryption(ctx context.Context, cwd string, app applicationInfo) erro
 		return fmt.Errorf("unable to check if app source folder has encrypted files err:%s", err)
 	}
 
-	if !found {
-		return nil
-	}
-
 	d, err := getKeyRingData(ctx, app.destinationNamespace, app.keyringSecret)
 	if err != nil {
+		// if there are no local secret file and secret is not found then its not an error
+		if !found == errors.Is(err, errNotFound) {
+			return nil
+		}
 		return err
 	}
 

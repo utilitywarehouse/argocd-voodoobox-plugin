@@ -154,6 +154,15 @@ func Test_ensureDecryption(t *testing.T) {
 		&v1.Secret{
 			ObjectMeta: metaV1.ObjectMeta{
 				Name:      "strongbox-secret",
+				Namespace: "bar",
+			},
+			Data: map[string][]byte{
+				"keyring": kr,
+			},
+		},
+		&v1.Secret{
+			ObjectMeta: metaV1.ObjectMeta{
+				Name:      "strongbox-secret",
 				Namespace: "foo",
 			},
 			Data: map[string][]byte{
@@ -174,7 +183,7 @@ func Test_ensureDecryption(t *testing.T) {
 		},
 	)
 
-	// withRemoteBase doesn't have enc files so it should not look for "missing-secrets" secret
+	// withRemoteBase doesn't have encrypted files so it should not error for "missing-secrets" secret
 	bar := applicationInfo{
 		name:                 "bar",
 		destinationNamespace: "bar",
@@ -183,12 +192,35 @@ func Test_ensureDecryption(t *testing.T) {
 			key:  "invalid",
 		},
 	}
-	err = ensureDecryption(context.Background(), withRemoteBaseTestDir, bar)
-	if err != nil {
-		t.Fatal(err)
-	}
+	t.Run("no-encrypted-files-no-secret", func(t *testing.T) {
+		err = ensureDecryption(context.Background(), withRemoteBaseTestDir, bar)
+		if err != nil {
+			t.Fatal(err)
+		}
+	})
 
-	// encryptedTestDir1 has enc files so it should look for secret and then decrypt content
+	// withRemoteBase doesn't have encrypted files but namespace contains secret so it should setup
+	// strongbox for remote base's encrypted secrets
+	bar2 := applicationInfo{
+		name:                 "bar",
+		destinationNamespace: "bar",
+		keyringSecret: secretInfo{
+			name: "strongbox-secret",
+			key:  "keyring",
+		},
+	}
+	t.Run("no-encrypted-files-with-secret", func(t *testing.T) {
+		err = ensureDecryption(context.Background(), withRemoteBaseTestDir, bar2)
+		if err != nil {
+			t.Fatal(err)
+		}
+		// make sure .strongbox_keyring file exists with correct keyring data
+		if !bytes.Contains(getFileContent(t, withRemoteBaseTestDir+"/.strongbox_keyring"), kr) {
+			t.Error(withRemoteBaseTestDir + "/.strongbox_keyring should contain keyring data")
+		}
+	})
+
+	// encryptedTestDir1 has encrypted files so it should look for secret and then decrypt content
 	// keyring secret in app's destination NS
 	foo := applicationInfo{
 		name:                 "foo",
@@ -198,29 +230,31 @@ func Test_ensureDecryption(t *testing.T) {
 			key:  "keyring",
 		},
 	}
-	err = ensureDecryption(context.Background(), encryptedTestDir1, foo)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if !bytes.Contains(getFileContent(t, encryptedTestDir1+"/secrets/strongbox-keyring"), kr) {
-		t.Error(encryptedTestDir1 + "/secrets/strongbox-keyring should contain keyring data")
-	}
-
-	encryptedFiles := []string{
-		encryptedTestDir1 + "/app/secrets/env_secrets",
-		encryptedTestDir1 + "/app/secrets/kube_secret.yaml",
-		encryptedTestDir1 + "/app/secrets/s1.json",
-		encryptedTestDir1 + "/app/secrets/s2.yaml",
-	}
-
-	for _, f := range encryptedFiles {
-		if !bytes.Contains(getFileContent(t, f), []byte("PlainText")) {
-			t.Errorf("%s should be decrypted", f)
+	t.Run("encrypted-files-with-secret", func(t *testing.T) {
+		err = ensureDecryption(context.Background(), encryptedTestDir1, foo)
+		if err != nil {
+			t.Fatal(err)
 		}
-	}
 
-	// encryptedTestDir2 has enc files so it should look for secret and then decrypt content
+		if !bytes.Contains(getFileContent(t, encryptedTestDir1+"/secrets/strongbox-keyring"), kr) {
+			t.Error(encryptedTestDir1 + "/secrets/strongbox-keyring should contain keyring data")
+		}
+
+		encryptedFiles := []string{
+			encryptedTestDir1 + "/app/secrets/env_secrets",
+			encryptedTestDir1 + "/app/secrets/kube_secret.yaml",
+			encryptedTestDir1 + "/app/secrets/s1.json",
+			encryptedTestDir1 + "/app/secrets/s2.yaml",
+		}
+
+		for _, f := range encryptedFiles {
+			if !bytes.Contains(getFileContent(t, f), []byte("PlainText")) {
+				t.Errorf("%s should be decrypted", f)
+			}
+		}
+	})
+
+	// encryptedTestDir2 has encrypted files so it should look for secret and then decrypt content
 	// keyring secret in different namespace then app's destination NS
 	baz := applicationInfo{
 		name:                 "foo",
@@ -231,26 +265,28 @@ func Test_ensureDecryption(t *testing.T) {
 			key:       "keyring",
 		},
 	}
-	err = ensureDecryption(context.Background(), encryptedTestDir2, baz)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if !bytes.Contains(getFileContent(t, encryptedTestDir2+"/secrets/strongbox-keyring"), kr) {
-		t.Error(encryptedTestDir2 + "/secrets/strongbox-keyring should contain keyring data")
-	}
-
-	encryptedFiles = []string{
-		encryptedTestDir2 + "/app/secrets/env_secrets",
-		encryptedTestDir2 + "/app/secrets/kube_secret.yaml",
-		encryptedTestDir2 + "/app/secrets/s1.json",
-		encryptedTestDir2 + "/app/secrets/s2.yaml",
-	}
-
-	for _, f := range encryptedFiles {
-		if !bytes.Contains(getFileContent(t, f), []byte("PlainText")) {
-			t.Errorf("%s should be decrypted", f)
+	t.Run("encrypted-files-with-secret-from-diff-ns", func(t *testing.T) {
+		err = ensureDecryption(context.Background(), encryptedTestDir2, baz)
+		if err != nil {
+			t.Fatal(err)
 		}
-	}
+
+		if !bytes.Contains(getFileContent(t, encryptedTestDir2+"/secrets/strongbox-keyring"), kr) {
+			t.Error(encryptedTestDir2 + "/secrets/strongbox-keyring should contain keyring data")
+		}
+
+		encryptedFiles := []string{
+			encryptedTestDir2 + "/app/secrets/env_secrets",
+			encryptedTestDir2 + "/app/secrets/kube_secret.yaml",
+			encryptedTestDir2 + "/app/secrets/s1.json",
+			encryptedTestDir2 + "/app/secrets/s2.yaml",
+		}
+
+		for _, f := range encryptedFiles {
+			if !bytes.Contains(getFileContent(t, f), []byte("PlainText")) {
+				t.Errorf("%s should be decrypted", f)
+			}
+		}
+	})
 
 }
