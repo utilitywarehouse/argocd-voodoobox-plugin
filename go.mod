@@ -5,7 +5,7 @@ go 1.21
 require (
 	github.com/google/go-cmp v0.6.0
 	github.com/hashicorp/go-hclog v1.6.2
-	github.com/urfave/cli/v2 v2.25.7
+	github.com/urfave/cli/v2 v2.27.1
 	k8s.io/api v0.28.4
 	k8s.io/apimachinery v0.28.4
 	k8s.io/client-go v0.28.4
