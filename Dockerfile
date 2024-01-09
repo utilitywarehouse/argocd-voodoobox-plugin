@@ -2,7 +2,7 @@ FROM golang:1.21-alpine AS build
 
 ENV \
   STRONGBOX_VERSION=1.1.0 \
-  KUSTOMIZE_VERSION=v5.2.1
+  KUSTOMIZE_VERSION=v5.3.0
 
 RUN os=$(go env GOOS) && arch=$(go env GOARCH) \
       && apk --no-cache add curl \
