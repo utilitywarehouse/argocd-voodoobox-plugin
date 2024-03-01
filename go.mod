@@ -7,7 +7,7 @@ require (
 	github.com/hashicorp/go-hclog v1.6.2
 	github.com/urfave/cli/v2 v2.27.1
 	k8s.io/api v0.29.1
-	k8s.io/apimachinery v0.29.1
+	k8s.io/apimachinery v0.29.2
 	k8s.io/client-go v0.29.1
 )
 
