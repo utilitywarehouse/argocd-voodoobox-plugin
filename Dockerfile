@@ -21,7 +21,7 @@ RUN go test -v -cover ./... \
 
 # final stage
 # argocd requires that sidecar container is running as user 999
-FROM alpine:3.18
+FROM alpine:3.19
 
 USER root
 
