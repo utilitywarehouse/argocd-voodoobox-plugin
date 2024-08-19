@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"strings"
 
+	"filippo.io/age/armor"
 	v1 "k8s.io/api/core/v1"
 	kErrors "k8s.io/apimachinery/pkg/api/errors"
 	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -49,11 +50,11 @@ func getSecret(ctx context.Context, destNamespace string, secret secretInfo) (*v
 		secret.namespace, secret.name, destNamespace, allowedNamespacesSecretAnnotation)
 }
 
-// isSecretEncrypted will go through all keys of the secret passed
+// verifySecretEncrypted will go through all keys of the secret passed
 // and error out if at least one of them is encrypted
 func verifySecretEncrypted(sec *v1.Secret) (*v1.Secret, error) {
 	for k, v := range sec.Data {
-		if bytes.HasPrefix(v, encryptedFilePrefix) {
+		if bytes.HasPrefix(v, encryptedFilePrefix) || strings.HasPrefix(string(v), armor.Header) {
 			return nil, fmt.Errorf("secret %s/%s has an encrypted data for the key %s", sec.Namespace, sec.Name, k)
 		}
 	}
