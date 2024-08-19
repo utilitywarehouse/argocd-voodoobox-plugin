@@ -34,21 +34,21 @@ func TestMain(m *testing.M) {
 	cmd := exec.Command("cp", "-r", "./testData/app-with-secrets", encryptedTestDir1)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "%v", string(out))
+		fmt.Fprintf(os.Stderr, "%s", out)
 		os.Exit(1)
 	}
 
 	cmd = exec.Command("cp", "-r", "./testData/app-with-secrets", encryptedTestDir2)
 	out, err = cmd.CombinedOutput()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "%v", string(out))
+		fmt.Fprintf(os.Stderr, "%s", out)
 		os.Exit(1)
 	}
 
 	cmd = exec.Command("cp", "-r", "./testData/app-with-remote-base", withRemoteBaseTestDir)
 	out, err = cmd.CombinedOutput()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "%v", string(out))
+		fmt.Fprintf(os.Stderr, "%s", out)
 		os.Exit(1)
 	}
 
@@ -81,30 +81,54 @@ func Test_secretData(t *testing.T) {
 				"randomKey": []byte("keyring-data-foo"),
 			},
 		},
+		&v1.Secret{
+			ObjectMeta: metaV1.ObjectMeta{
+				Name:      "argocd-voodoobox-strongbox-keyring",
+				Namespace: "age",
+			},
+			Data: map[string][]byte{
+				stronboxIdentityFilename: []byte("AGE-SECRET-KEY-1GNC98E3WNPAXE49FATT434CFC2THV5Q0SLW45T3VNYUVZ4F8TY6SREQR9Q"),
+			},
+		},
+		&v1.Secret{
+			ObjectMeta: metaV1.ObjectMeta{
+				Name:      "argocd-voodoobox-strongbox-keyring",
+				Namespace: "age-and-siv",
+			},
+			Data: map[string][]byte{
+				".strongbox_keyring":     []byte("keyring-data-bar"),
+				stronboxIdentityFilename: []byte("AGE-SECRET-KEY-1GNC98E3WNPAXE49FATT434CFC2THV5Q0SLW45T3VNYUVZ4F8TY6SREQR9Q"),
+			},
+		},
 	)
 
 	tests := []struct {
 		name                 string
 		destinationNamespace string
 		secret               secretInfo
-		want                 []byte
+		keyring              []byte
+		identity             []byte
 		wantErr              bool
 	}{
-		{"bar-ok", "bar", secretInfo{name: "argocd-strongbox-secret", key: ".strongbox_keyring"}, []byte("keyring-data-bar"), false},
-		{"foo-wrong-key", "foo", secretInfo{name: "strongbox-secret", key: ".strongbox_keyring"}, nil, false},
-		{"foo-ok", "foo", secretInfo{name: "strongbox-secret", key: "randomKey"}, []byte("keyring-data-foo"), false},
-		{"default-missing", "default", secretInfo{name: "strongbox-secret", key: "randomKey"}, nil, true},
+		{"bar-siv-ok", "bar", secretInfo{name: "argocd-strongbox-secret", key: ".strongbox_keyring"}, []byte("keyring-data-bar"), nil, false},
+		{"age-ok", "age", secretInfo{name: "argocd-voodoobox-strongbox-keyring"}, nil, []byte("AGE-SECRET-KEY-1GNC98E3WNPAXE49FATT434CFC2THV5Q0SLW45T3VNYUVZ4F8TY6SREQR9Q"), false},
+		{"age-and-siv-ok", "age-and-siv", secretInfo{name: "argocd-voodoobox-strongbox-keyring", key: ".strongbox_keyring"}, []byte("keyring-data-bar"), []byte("AGE-SECRET-KEY-1GNC98E3WNPAXE49FATT434CFC2THV5Q0SLW45T3VNYUVZ4F8TY6SREQR9Q"), false},
+		{"foo-wrong-key", "foo", secretInfo{name: "strongbox-secret", key: ".strongbox_keyring"}, nil, nil, false},
+		{"foo-siv-ok", "foo", secretInfo{name: "strongbox-secret", key: "randomKey"}, []byte("keyring-data-foo"), nil, false},
+		{"default-missing", "default", secretInfo{name: "strongbox-secret", key: "randomKey"}, nil, nil, true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// TODO check identityData
-			keyringData, _, err := secretData(context.Background(), tt.destinationNamespace, tt.secret)
+			keyringData, identityData, err := secretData(context.Background(), tt.destinationNamespace, tt.secret)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("secretData() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			if !reflect.DeepEqual(keyringData, tt.want) {
-				t.Errorf("secretData() = %v, want %v", keyringData, tt.want)
+			if !reflect.DeepEqual(keyringData, tt.keyring) {
+				t.Errorf("secretData() keyring=%s, want=%s", keyringData, tt.keyring)
+			}
+			if !reflect.DeepEqual(identityData, tt.identity) {
+				t.Errorf("secretData() identity=%s, want=%s", identityData, tt.identity)
 			}
 		})
 	}
