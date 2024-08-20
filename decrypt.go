@@ -118,18 +118,13 @@ func strongboxAgeRecursiveDecrypt(ctx context.Context, cwd string, identityData 
 		if err != nil {
 			return err
 		}
-
-		if err = file.Truncate(0); err != nil {
-			return err
-		}
 		if _, err := file.Seek(0, io.SeekStart); err != nil {
 			return err
 		}
-		_, err = io.Copy(file, ar)
+		n, err := io.Copy(file, ar)
 		if err != nil {
 			return err
 		}
-
-		return nil
+		return file.Truncate(n)
 	})
 }
