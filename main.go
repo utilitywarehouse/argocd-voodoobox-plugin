@@ -84,6 +84,13 @@ to get comma-separated list of all the namespaces that are allowed to use it`,
 		Value:       "argocd.voodoobox.plugin.io/allowed-namespaces",
 	},
 
+	&cli.BoolFlag{
+		Name:    "app-strongbox-enabled",
+		EnvVars: []string{argocdAppEnvPrefix + "STRONGBOX_ENABLED"},
+		Usage: `set 'STRONGBOX_ENABLED' in argocd application as plugin
+		ENV. If set to "true" will use default values to lookup the
+		Strongbox secret and use it.`,
+	},
 	// following envs comes from argocd application resource
 	// strongbox secrets flags
 	&cli.StringFlag{
@@ -97,7 +104,7 @@ name of a namespace where secret resource containing strongbox keyring is locate
 		EnvVars: []string{argocdAppEnvPrefix + "STRONGBOX_SECRET_KEY"},
 		Usage: `set 'STRONGBOX_KEYRING_KEY' in argocd application as plugin ENV, the value should be the
 name of the secret data key which contains a valid strongbox keyring file`,
-		Value: ".strongbox_keyring",
+		Value: strongboxKeyRingFile,
 	},
 	// do not set `EnvVars` for secret name flag
 	// To keep service account's permission minimum, the name of the secret is static across ALL applications.
@@ -110,6 +117,13 @@ encrypt app secrets. name will be same across all applications`,
 	},
 
 	// SSH secrets flags
+	&cli.BoolFlag{
+		Name:    "app-git-ssh-enabled",
+		EnvVars: []string{argocdAppEnvPrefix + "GIT_SSH_SECRET_ENABLED"},
+		Usage: `set 'GIT_SSH_SECRET_ENABLED' in argocd application as plugin
+		ENV. If set to "true" will use default values to lookup the
+		Git SSH secret and use it.`,
+	},
 	&cli.StringFlag{
 		Name:    "app-git-ssh-secret-namespace",
 		EnvVars: []string{argocdAppEnvPrefix + "GIT_SSH_SECRET_NAMESPACE"},
@@ -152,18 +166,23 @@ func main() {
 						name:                 c.String("app-name"),
 						destinationNamespace: c.String("app-namespace"),
 					}
-					app.keyringSecret = secretInfo{
-						namespace: c.String("app-strongbox-secret-namespace"),
-						name:      c.String("app-strongbox-secret-name"),
-						key:       c.String("app-strongbox-secret-key"),
-					}
-					app.gitSSHSecret = secretInfo{
-						namespace: c.String("app-git-ssh-secret-namespace"),
-						name:      c.String("app-git-ssh-secret-name"),
+
+					if c.Bool("app-git-ssh-enabled") {
+						app.gitSSHSecret = secretInfo{
+							name:      c.String("app-git-ssh-secret-name"),
+							namespace: c.String("app-git-ssh-secret-namespace"),
+						}
 					}
 
-					if err := ensureDecryption(c.Context, cwd, app); err != nil {
-						return err
+					if c.Bool("app-strongbox-enabled") {
+						app.keyringSecret = secretInfo{
+							key:       c.String("app-strongbox-secret-key"),
+							name:      c.String("app-strongbox-secret-name"),
+							namespace: c.String("app-strongbox-secret-namespace"),
+						}
+						if err := ensureDecryption(c.Context, cwd, app); err != nil {
+							return err
+						}
 					}
 
 					manifests, err := ensureBuild(c.Context, cwd, globalKeyPath, globalKnownHostFile, app)

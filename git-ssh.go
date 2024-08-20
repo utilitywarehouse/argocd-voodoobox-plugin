@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"bytes"
 	"context"
-	"errors"
 	"fmt"
 	"io"
 	"io/fs"
@@ -48,13 +47,13 @@ func setupGitSSH(ctx context.Context, cwd, globalKeyPath, globalKnownHostFile st
 	var keyedDomain = make(map[string]string)
 	var userKnownHostFile string
 
-	// attempt to get secret with user's own ssh keys if not found continue with just global key
-	sec, err := getSecret(ctx, app.destinationNamespace, app.gitSSHSecret)
-	if err != nil && !errors.Is(err, errNotFound) {
-		return "", err
-	}
+	// Using own SSH key
+	if app.gitSSHSecret.name != "" {
+		sec, err := getSecret(ctx, app.destinationNamespace, app.gitSSHSecret)
+		if err != nil {
+			return "", err
+		}
 
-	if sec != nil {
 		// write ssh data to ssh dir
 		for k, v := range sec.Data {
 			if k == "known_hosts" {

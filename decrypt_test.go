@@ -176,22 +176,6 @@ func Test_ensureDecryption(t *testing.T) {
 		},
 	)
 
-	// withRemoteBase doesn't have encrypted files so it should not error for "missing-secrets" secret
-	bar := applicationInfo{
-		name:                 "bar",
-		destinationNamespace: "bar",
-		keyringSecret: secretInfo{
-			name: "missing-secrets",
-			key:  "invalid",
-		},
-	}
-	t.Run("no-encrypted-files-no-secret", func(t *testing.T) {
-		err = ensureDecryption(context.Background(), withRemoteBaseTestDir, bar)
-		if err != nil {
-			t.Fatal(err)
-		}
-	})
-
 	// withRemoteBase doesn't have encrypted files but namespace contains secret so it should setup
 	// strongbox for remote base's encrypted secrets
 	bar2 := applicationInfo{
