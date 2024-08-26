@@ -10,6 +10,14 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
+
+	"filippo.io/age"
+	"filippo.io/age/armor"
+)
+
+const (
+	stronboxIdentityFilename = ".strongbox_identity"
 )
 
 var (
@@ -18,92 +26,46 @@ var (
 )
 
 func ensureDecryption(ctx context.Context, cwd string, app applicationInfo) error {
-	// Check if decryption is required before requesting keyRing secrets
-	found, err := hasEncryptedFiles(cwd)
+	keyringData, identityData, err := secretData(ctx, app.destinationNamespace, app.keyringSecret)
 	if err != nil {
-		return fmt.Errorf("unable to check if app source folder has encrypted files err:%s", err)
-	}
-
-	d, err := getKeyRingData(ctx, app.destinationNamespace, app.keyringSecret)
-	if err != nil {
-		// if there are no local secret file and secret is not found then its not an error
-		if !found && errors.Is(err, errNotFound) {
-			return nil
-		}
 		return err
 	}
-
-	keyRingPath := filepath.Join(cwd, strongboxKeyRingFile)
+	if keyringData == nil && identityData == nil {
+		return nil
+	}
 
 	// create strongbox keyRing file
-	if err := os.WriteFile(keyRingPath, d, 0600); err != nil {
-		return err
+	if keyringData != nil {
+		keyRingPath := filepath.Join(cwd, strongboxKeyRingFile)
+		if err := os.WriteFile(keyRingPath, keyringData, 0644); err != nil {
+			return err
+		}
+
+		if err := runStrongboxDecryption(ctx, cwd, keyRingPath); err != nil {
+			return fmt.Errorf("unable to decrypt err:%s", err)
+		}
 	}
 
-	if err := runStrongboxDecryption(ctx, cwd, keyRingPath); err != nil {
-		return fmt.Errorf("unable to decrypt err:%s", err)
+	if identityData != nil {
+		identityPath := filepath.Join(cwd, stronboxIdentityFilename)
+		if err := os.WriteFile(identityPath, identityData, 0644); err != nil {
+			return err
+		}
+		if err := strongboxAgeRecursiveDecrypt(ctx, cwd, identityData); err != nil {
+			return fmt.Errorf("unable to decrypt err:%s", err)
+		}
 	}
+
 	return nil
 }
 
-func getKeyRingData(ctx context.Context, destinationNamespace string, secret secretInfo) ([]byte, error) {
-	keyringSecret, err := getSecret(ctx, destinationNamespace, secret)
+func secretData(ctx context.Context, destinationNamespace string, si secretInfo) ([]byte, []byte, error) {
+	secret, err := getSecret(ctx, destinationNamespace, si)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	if v, ok := keyringSecret.Data[secret.key]; ok {
-		return v, nil
-	}
-
-	return nil, fmt.Errorf("key '%s' not found %s secret", secret.key, secret.name)
-}
-
-// hasEncryptedFiles will recursively check if any encrypted file
-// it will return on first encrypted file if found
-func hasEncryptedFiles(cwd string) (bool, error) {
-	err := filepath.WalkDir(cwd, func(path string, entry fs.DirEntry, err error) error {
-		// always return on error
-		if err != nil {
-			return err
-		}
-
-		if entry.IsDir() {
-			// skip .git directory
-			if entry.Name() == ".git" {
-				return fs.SkipDir
-			}
-			return nil
-		}
-
-		file, err := os.OpenFile(path, os.O_RDONLY, 0)
-		if err != nil {
-			return err
-		}
-		defer file.Close()
-
-		// for optimisation only read required chunk of the file and verify if encrypted
-		chunk := make([]byte, 100)
-		_, err = file.Read(chunk)
-		if err != nil && err != io.EOF {
-			return err
-		}
-
-		if bytes.Contains(chunk, encryptedFilePrefix) {
-			return errEncryptedFileFound
-		}
-
-		return nil
-	})
-
-	if err != nil {
-		if err == errEncryptedFileFound {
-			return true, nil
-		}
-		return false, err
-	}
-
-	return false, nil
+	return secret.Data[si.key], secret.Data[stronboxIdentityFilename], nil
 }
 
 // runStrongboxDecryption will try to decrypt files in cwd using given keyRing file
@@ -116,4 +78,53 @@ func runStrongboxDecryption(ctx context.Context, cwd, keyringPath string) error 
 	}
 
 	return nil
+}
+
+func strongboxAgeRecursiveDecrypt(ctx context.Context, cwd string, identityData []byte) error {
+	identities, err := age.ParseIdentities(bytes.NewBuffer(identityData))
+	if err != nil {
+		return err
+	}
+
+	return filepath.Walk(cwd, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+
+		if info.IsDir() {
+			// skip .git directory
+			if info.Name() == ".git" {
+				return fs.SkipDir
+			}
+			return nil
+		}
+
+		file, err := os.OpenFile(path, os.O_RDWR, 0644)
+		if err != nil {
+			return err
+		}
+		defer file.Close()
+		in, err := io.ReadAll(file)
+		if err != nil {
+			return err
+		}
+
+		if !strings.HasPrefix(string(in), armor.Header) {
+			return nil
+		}
+
+		armorReader := armor.NewReader(bytes.NewReader(in))
+		ar, err := age.Decrypt(armorReader, identities...)
+		if err != nil {
+			return err
+		}
+		if _, err := file.Seek(0, io.SeekStart); err != nil {
+			return err
+		}
+		n, err := io.Copy(file, ar)
+		if err != nil {
+			return err
+		}
+		return file.Truncate(n)
+	})
 }

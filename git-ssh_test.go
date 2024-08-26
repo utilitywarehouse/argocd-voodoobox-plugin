@@ -542,9 +542,6 @@ func Test_setupGitSSH(t *testing.T) {
 	withOutSecret := applicationInfo{
 		name:                 "app-foo",
 		destinationNamespace: "foo-bar",
-		gitSSHSecret: secretInfo{
-			name: "argocd-voodoobox-git-ssh",
-		},
 	}
 	wnatEnv := "GIT_SSH_COMMAND=ssh -q -F testData/app-with-remote-base-test1/.ssh/config -o UserKnownHostsFile=path/to/global/known_hosts"
 	env, err := setupGitSSH(context.Background(), withRemoteBaseTestDir, "path/to/global/key", "path/to/global/known_hosts", withOutSecret)

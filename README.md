@@ -17,7 +17,6 @@ if multiple keys are used to encrypt app secrets then this secret should contain
 
 To fetch remote base from private repository, admin can add global ssh key which will be used for ALL applications.
 
-
 user can also provide own ssh keys for an applications via secret with name `argocd-voodoobox-git-ssh`, 
 that contains one or more SSH keys that provide access to the private repositories that contain these bases. To use an SSH key for Kustomize bases, 
 the bases URL should be defined with the ssh:// scheme in kustomization.yaml and have a `# argocd-voodoobox-plugin: <key_file_name>` comment above it.
@@ -42,33 +41,54 @@ resources:
 
 ### Strongbox ENVs
 
- Plugin supports following _plugin envs_ which can be set in ArgoCD Application crd
+Plugin supports following _plugin envs_ which can be set in ArgoCD Application crd:
 
-The value of name of a secret resource containing strongbox keyring used to encrypt app secrets, must be `argocd-voodoobox-strongbox-keyring`.
+Set following envvar:
 
-`STRONGBOX_SECRET_KEY` the value should be the name of the secret data key which contains a valid strongbox keyring file data. the default value is `.strongbox_keyring`
+```
+- name: STRONGBOX_KEYRING_ENABLED
+  value: true
+```
+
+to enable Strongbox decryption for your Namespace.
+
+Secret that contains Strongbox keyring/identity used to encrypt app secrets, must be `argocd-voodoobox-strongbox-keyring`.
+
+`STRONGBOX_SECRET_KEY` the value should be the name of the Secret data key which contains a valid Strongbox keyring file data. The default value is `.strongbox_keyring`
+
+For age, the key must be `.strongbox_identity`.
 
 `STRONGBOX_SECRET_NAMESPACE` If you need to deploy a shared strongbox keyring to use in multiple namespaces, then it can be set by this ENV.
 the Secret should have an annotation called "argocd.voodoobox.plugin.io/allowed-namespaces" which contains a comma-separated list of all the namespaces that are allowed to use it.
 Since ArgoCD Application can be used to create a namespace, wild card is not supported in the allow list. it is an exact matching.
 If this env is not specified then it defaults to the same namespace as the app's destination NS.
 
-
 ```yaml
 # secret example the following secret can be used by namespaces "ns-a", "ns-b" and "ns-c":
-kind: Secret
-apiVersion: v1
-metadata:
-  name: argocd-voodoobox-strongbox-keyring
-  namespace: ns-a
-  annotations:
-    argocd.voodoobox.plugin.io/allowed-namespaces: "ns-b, ns-c"
-stringData:
-  .strongbox_keyring: |-
-    keyentries:
-    - description: mykey
-      key-id: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
-      key: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+
+# ./strongbox_identity.yaml
+# description: ident1
+# public key: age1ex4ph3ryaathfac0xpjhxk50utn50mtprke7h0vsmdlh6j63q5dsafxehs
+AGE-SECRET-KEY-1GNC98E3WNPAXE49FATT434CFC2THV5Q0SLW45T3VNYUVZ4F8TY6SREQR9Q
+
+# ./strongbox_keyring.yaml
+keyentries:
+- description: mykey
+  key-id: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+  key: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+
+# ./kustomization.yaml
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: ns-a
+secretGenerator:
+  - name: argocd-voodoobox-strongbox-keyring
+    options:
+      annotations:
+        argocd.voodoobox.plugin.io/allowed-namespaces: "ns-b, ns-c"
+    files:
+      - .strongbox_identity.yaml=strongbox_identity.yaml
+      - .strongbox_keyring.yaml=strongbox_keyring.yaml
 ```
 
 ```yaml
@@ -79,6 +99,8 @@ spec:
     targetRevision: HEAD
     plugin:
       env:
+        - name: STRONGBOX_ENABLED
+          value: true
         - name: STRONGBOX_SECRET_NAMESPACE
           value: team-a
         - name: STRONGBOX_SECRET_KEY
@@ -86,6 +108,15 @@ spec:
 ```
 
 ### Git SSH Keys Envs
+
+Set following envvar:
+
+```
+- name: GIT_SSH_SECRET_ENABLED
+  value: true
+```
+
+to use your own Git SSH key to fetch remote private bases.
 
 `GIT_SSH_SECRET_NAMESPACE` the value should be the name of a namespace where secret resource containing ssh keys are located. If this env is not specified then it defaults to the same namespace as the app's destination NS.
 the Secret should have an annotation called "argocd.voodoobox.plugin.io/allowed-namespaces" which contains a comma-separated list of all the namespaces that are allowed to use it.
@@ -224,8 +255,6 @@ subjects:
 
 ```
 
-
-
 ### Plugin Configuration 
 #### decrypt
 
@@ -238,8 +267,10 @@ subjects:
 | --app-git-ssh-secret-name | argocd-voodoobox-git-ssh | the value should be the name of a secret resource containing ssh keys used for fetching remote kustomize bases from private repositories. name will be same across all applications |
 | ARGOCD_APP_NAME | set by argocd | name of application |
 | ARGOCD_APP_NAMESPACE | set by argocd | application's destination namespace |
+| STRONGBOX_KEYRING_ENABLED¹ | false | Enable Strongbox for decryption |
 | STRONGBOX_KEYRING_KEY¹ | .strongbox_keyring | the name of the secret data key which contains a valid strongbox keyring file |
-| STRONGBOX_SECRET_NAMESPACE¹ | | the name of a namespace where secret resource containing strongbox keyring is located |
-| GIT_SSH_SECRET_NAMESPACE¹ | | the value should be the name of a namespace where secret resource containing ssh keys are located |
+| STRONGBOX_SECRET_NAMESPACE¹ | | the name of a namespace where secret resource containing strongbox keyring is located, defaults to current |
+| GIT_SSH_SECRET_ENABLED¹ | false | Enable Git SSH building using custom (non global) key |
+| GIT_SSH_SECRET_NAMESPACE¹ | | the value should be the name of a namespace where secret resource containing ssh keys are located, defaults to current |
 
 ¹ These ENVs should be added to argocd application plugin env sections

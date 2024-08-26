@@ -34,21 +34,21 @@ func TestMain(m *testing.M) {
 	cmd := exec.Command("cp", "-r", "./testData/app-with-secrets", encryptedTestDir1)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "%v", string(out))
+		fmt.Fprintf(os.Stderr, "%s", out)
 		os.Exit(1)
 	}
 
 	cmd = exec.Command("cp", "-r", "./testData/app-with-secrets", encryptedTestDir2)
 	out, err = cmd.CombinedOutput()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "%v", string(out))
+		fmt.Fprintf(os.Stderr, "%s", out)
 		os.Exit(1)
 	}
 
 	cmd = exec.Command("cp", "-r", "./testData/app-with-remote-base", withRemoteBaseTestDir)
 	out, err = cmd.CombinedOutput()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "%v", string(out))
+		fmt.Fprintf(os.Stderr, "%s", out)
 		os.Exit(1)
 	}
 
@@ -61,36 +61,7 @@ func TestMain(m *testing.M) {
 	os.Exit(code)
 }
 
-func Test_hasEncryptedFiles(t *testing.T) {
-	type args struct {
-		cwd string
-	}
-	tests := []struct {
-		name    string
-		args    args
-		want    bool
-		wantErr bool
-	}{
-		{"encryptedTestDir1", args{cwd: encryptedTestDir1}, true, false},
-		{"encryptedTestDir2", args{cwd: encryptedTestDir2}, true, false},
-		{"withRemoteBase", args{cwd: withRemoteBaseTestDir}, false, false},
-		{".github", args{cwd: ".github"}, false, false},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got, err := hasEncryptedFiles(tt.args.cwd)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("hasEncryptedFiles() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			if got != tt.want {
-				t.Errorf("hasEncryptedFiles() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
-func Test_getKeyRingData(t *testing.T) {
+func Test_secretData(t *testing.T) {
 	kubeClient = fake.NewSimpleClientset(
 		&v1.Secret{
 			ObjectMeta: metaV1.ObjectMeta{
@@ -110,32 +81,54 @@ func Test_getKeyRingData(t *testing.T) {
 				"randomKey": []byte("keyring-data-foo"),
 			},
 		},
+		&v1.Secret{
+			ObjectMeta: metaV1.ObjectMeta{
+				Name:      "argocd-voodoobox-strongbox-keyring",
+				Namespace: "age",
+			},
+			Data: map[string][]byte{
+				stronboxIdentityFilename: []byte("AGE-SECRET-KEY-1GNC98E3WNPAXE49FATT434CFC2THV5Q0SLW45T3VNYUVZ4F8TY6SREQR9Q"),
+			},
+		},
+		&v1.Secret{
+			ObjectMeta: metaV1.ObjectMeta{
+				Name:      "argocd-voodoobox-strongbox-keyring",
+				Namespace: "age-and-siv",
+			},
+			Data: map[string][]byte{
+				".strongbox_keyring":     []byte("keyring-data-bar"),
+				stronboxIdentityFilename: []byte("AGE-SECRET-KEY-1GNC98E3WNPAXE49FATT434CFC2THV5Q0SLW45T3VNYUVZ4F8TY6SREQR9Q"),
+			},
+		},
 	)
 
-	type args struct {
+	tests := []struct {
+		name                 string
 		destinationNamespace string
 		secret               secretInfo
-	}
-	tests := []struct {
-		name    string
-		args    args
-		want    []byte
-		wantErr bool
+		keyring              []byte
+		identity             []byte
+		wantErr              bool
 	}{
-		{"bar", args{"bar", secretInfo{name: "argocd-strongbox-secret", key: ".strongbox_keyring"}}, []byte("keyring-data-bar"), false},
-		{"foo-wrong-key", args{"foo", secretInfo{name: "strongbox-secret", key: ".strongbox_keyring"}}, nil, true},
-		{"foo", args{"foo", secretInfo{name: "strongbox-secret", key: "randomKey"}}, []byte("keyring-data-foo"), false},
-		{"missing", args{"default", secretInfo{name: "strongbox-secret", key: "randomKey"}}, nil, true},
+		{"bar-siv-ok", "bar", secretInfo{name: "argocd-strongbox-secret", key: ".strongbox_keyring"}, []byte("keyring-data-bar"), nil, false},
+		{"age-ok", "age", secretInfo{name: "argocd-voodoobox-strongbox-keyring"}, nil, []byte("AGE-SECRET-KEY-1GNC98E3WNPAXE49FATT434CFC2THV5Q0SLW45T3VNYUVZ4F8TY6SREQR9Q"), false},
+		{"age-and-siv-ok", "age-and-siv", secretInfo{name: "argocd-voodoobox-strongbox-keyring", key: ".strongbox_keyring"}, []byte("keyring-data-bar"), []byte("AGE-SECRET-KEY-1GNC98E3WNPAXE49FATT434CFC2THV5Q0SLW45T3VNYUVZ4F8TY6SREQR9Q"), false},
+		{"foo-wrong-key", "foo", secretInfo{name: "strongbox-secret", key: ".strongbox_keyring"}, nil, nil, false},
+		{"foo-siv-ok", "foo", secretInfo{name: "strongbox-secret", key: "randomKey"}, []byte("keyring-data-foo"), nil, false},
+		{"default-missing", "default", secretInfo{name: "strongbox-secret", key: "randomKey"}, nil, nil, true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := getKeyRingData(context.Background(), tt.args.destinationNamespace, tt.args.secret)
+			keyringData, identityData, err := secretData(context.Background(), tt.destinationNamespace, tt.secret)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("getKeyRingData() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("secretData() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("getKeyRingData() = %v, want %v", got, tt.want)
+			if !reflect.DeepEqual(keyringData, tt.keyring) {
+				t.Errorf("secretData() keyring=%s, want=%s", keyringData, tt.keyring)
+			}
+			if !reflect.DeepEqual(identityData, tt.identity) {
+				t.Errorf("secretData() identity=%s, want=%s", identityData, tt.identity)
 			}
 		})
 	}
@@ -182,22 +175,6 @@ func Test_ensureDecryption(t *testing.T) {
 			},
 		},
 	)
-
-	// withRemoteBase doesn't have encrypted files so it should not error for "missing-secrets" secret
-	bar := applicationInfo{
-		name:                 "bar",
-		destinationNamespace: "bar",
-		keyringSecret: secretInfo{
-			name: "missing-secrets",
-			key:  "invalid",
-		},
-	}
-	t.Run("no-encrypted-files-no-secret", func(t *testing.T) {
-		err = ensureDecryption(context.Background(), withRemoteBaseTestDir, bar)
-		if err != nil {
-			t.Fatal(err)
-		}
-	})
 
 	// withRemoteBase doesn't have encrypted files but namespace contains secret so it should setup
 	// strongbox for remote base's encrypted secrets
