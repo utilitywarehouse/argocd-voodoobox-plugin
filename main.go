@@ -119,8 +119,8 @@ encrypt app secrets. name will be same across all applications`,
 	// SSH secrets flags
 	&cli.BoolFlag{
 		Name:    "app-git-ssh-enabled",
-		EnvVars: []string{argocdAppEnvPrefix + "GIT_SSH_SECRET_ENABLED"},
-		Usage: `set 'GIT_SSH_SECRET_ENABLED' in argocd application as plugin
+		EnvVars: []string{argocdAppEnvPrefix + "GIT_SSH_CUSTOM_KEY_ENABLED"},
+		Usage: `set 'GIT_SSH_CUSTOM_KEY_ENABLED' in ArgoCD application as plugin
 		ENV. If set to "true" will use default values to lookup the
 		Git SSH secret and use it.`,
 	},
