@@ -258,20 +258,20 @@ subjects:
 ### Plugin Configuration 
 
 #### Server config
-| app arguments/ENVs | default | example / explanation |
+| flag | default | example / explanation |
 |-|-|-|
 | --allowed-namespaces-secret-annotation | argocd.voodoobox.plugin.io/allowed-namespaces | when shared secret is used this value is the annotation key to look for in secret to get comma-separated list of all the namespaces that are allowed to use it |
 | --global-git-ssh-key-file | | The path to git ssh key file which will be used as global ssh key to fetch kustomize base from private repo for all application |
 | --global-git-ssh-known-hosts-file | | The path to git known hosts file which will be used as with global ssh key to fetch kustomize base from private repo for all application |
 | --app-strongbox-secret-name | argocd-voodoobox-strongbox-keyring | the value should be the name of a secret resource containing strongbox keyring used to encrypt app secrets. name will be same across all applications |
 | --app-git-ssh-secret-name | argocd-voodoobox-git-ssh | the value should be the name of a secret resource containing ssh keys used for fetching remote kustomize bases from private repositories. name will be same across all applications |
-| ARGOCD_APP_NAME | set by argocd | name of application |
-| ARGOCD_APP_NAMESPACE | set by argocd | application's destination namespace |
 
 #### Application config - set in Application plugin env section
 
 | envvar | default | example / explanation |
 |-|-|-|
+| ARGOCD_APP_NAME | set by argocd | name of application |
+| ARGOCD_APP_NAMESPACE | set by argocd | application's destination namespace |
 | STRONGBOX_KEYRING_ENABLED | false | Enable Strongbox for decryption |
 | STRONGBOX_KEYRING_KEY | .strongbox_keyring | the name of the secret data key which contains a valid strongbox keyring file |
 | STRONGBOX_SECRET_NAMESPACE | | the name of a namespace where secret resource containing strongbox keyring is located, defaults to current |
