@@ -1,7 +1,7 @@
-FROM golang:1.22-alpine AS build
+FROM golang:1.23-alpine AS build
 
 ENV \
-  STRONGBOX_VERSION=1.1.0 \
+  STRONGBOX_VERSION=2.0.0-RC4 \
   KUSTOMIZE_VERSION=v5.4.1
 
 RUN os=$(go env GOOS) && arch=$(go env GOARCH) \
@@ -21,7 +21,7 @@ RUN go test -v -cover ./... \
 
 # final stage
 # argocd requires that sidecar container is running as user 999
-FROM alpine:3.19
+FROM alpine:3.20
 
 USER root
 
@@ -37,5 +37,4 @@ COPY --from=build \
   /usr/local/bin/
 
 ENV USER=argocd
-
 USER $ARGOCD_USER_ID
