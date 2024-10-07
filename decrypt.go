@@ -18,6 +18,7 @@ import (
 
 const (
 	stronboxIdentityFilename = ".strongbox_identity"
+	stronboxKeyringFilename  = ".strongbox_keyring"
 )
 
 var (
@@ -65,7 +66,7 @@ func secretData(ctx context.Context, destinationNamespace string, si secretInfo)
 		return nil, nil, err
 	}
 
-	return secret.Data[si.key], secret.Data[stronboxIdentityFilename], nil
+	return secret.Data[stronboxKeyringFilename], secret.Data[stronboxIdentityFilename], nil
 }
 
 // runStrongboxDecryption will try to decrypt files in cwd using given keyRing file
