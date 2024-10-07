@@ -43,8 +43,7 @@ resources:
 
 Secret name containing Strongbox keyring/identity file MUST be `argocd-voodoobox-strongbox-keyring`.
 
-`STRONGBOX_SECRET_KEY` - set a custom "key name" for keyring data. The default value is `.strongbox_keyring`.
-
+Key name for keyring MUST be `.strongbox_keyring`
 For age, the key name MUST be `.strongbox_identity`.
 
 `STRONGBOX_SECRET_NAMESPACE` If you need to deploy a shared strongbox keyring to use in multiple namespaces, then it can be set by this ENV.
@@ -258,7 +257,6 @@ subjects:
 | ARGOCD_APP_NAME | set by argocd | name of application |
 | ARGOCD_APP_NAMESPACE | set by argocd | application's destination namespace |
 | STRONGBOX_ENABLED | "true" | Enable Strongbox for decryption |
-| STRONGBOX_KEYRING_KEY | .strongbox_keyring | the name of the secret data key which contains a valid strongbox keyring file |
 | STRONGBOX_SECRET_NAMESPACE | | the name of a namespace where secret resource containing strongbox keyring is located, defaults to current |
 | GIT_SSH_CUSTOM_KEY_ENABLED | "false" | Enable Git SSH building using custom (non global) key |
 | GIT_SSH_SECRET_NAMESPACE | | the value should be the name of a namespace where secret resource containing ssh keys are located, defaults to current |

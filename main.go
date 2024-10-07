@@ -43,7 +43,6 @@ type applicationInfo struct {
 type secretInfo struct {
 	namespace string
 	name      string
-	key       string
 }
 
 var flags = []cli.Flag{
@@ -99,13 +98,6 @@ to get comma-separated list of all the namespaces that are allowed to use it`,
 		EnvVars: []string{argocdAppEnvPrefix + "STRONGBOX_SECRET_NAMESPACE"},
 		Usage: `set 'STRONGBOX_SECRET_NAMESPACE' in argocd application as plugin ENV. the value should be the
 name of a namespace where secret resource containing strongbox keyring is located`,
-	},
-	&cli.StringFlag{
-		Name:    "app-strongbox-secret-key",
-		EnvVars: []string{argocdAppEnvPrefix + "STRONGBOX_SECRET_KEY"},
-		Usage: `set 'STRONGBOX_KEYRING_KEY' in argocd application as plugin ENV, the value should be the
-name of the secret data key which contains a valid strongbox keyring file`,
-		Value: strongboxKeyRingFile,
 	},
 	// do not set `EnvVars` for secret name flag
 	// To keep service account's permission minimum, the name of the secret is static across ALL applications.
@@ -177,7 +169,6 @@ func main() {
 
 					if c.Bool("app-strongbox-enabled") {
 						app.keyringSecret = secretInfo{
-							key:       c.String("app-strongbox-secret-key"),
 							name:      c.String("app-strongbox-secret-name"),
 							namespace: c.String("app-strongbox-secret-namespace"),
 						}

@@ -18,7 +18,6 @@ var (
 	encryptedTestDir1     = "./testData/app-with-secrets-test1"
 	encryptedTestDir2     = "./testData/app-with-secrets-test2"
 	withRemoteBaseTestDir = "./testData/app-with-remote-base-test1"
-	// withRemoteBase        = "./testData/app-with-remote-base"
 )
 
 func getFileContent(t *testing.T, fileName string) []byte {
@@ -87,7 +86,7 @@ func Test_secretData(t *testing.T) {
 				Namespace: "age",
 			},
 			Data: map[string][]byte{
-				stronboxIdentityFilename: []byte("AGE-SECRET-KEY-1GNC98E3WNPAXE49FATT434CFC2THV5Q0SLW45T3VNYUVZ4F8TY6SREQR9Q"),
+				strongboxIdentityFilename: []byte("AGE-SECRET-KEY-1GNC98E3WNPAXE49FATT434CFC2THV5Q0SLW45T3VNYUVZ4F8TY6SREQR9Q"),
 			},
 		},
 		&v1.Secret{
@@ -96,8 +95,8 @@ func Test_secretData(t *testing.T) {
 				Namespace: "age-and-siv",
 			},
 			Data: map[string][]byte{
-				".strongbox_keyring":     []byte("keyring-data-bar"),
-				stronboxIdentityFilename: []byte("AGE-SECRET-KEY-1GNC98E3WNPAXE49FATT434CFC2THV5Q0SLW45T3VNYUVZ4F8TY6SREQR9Q"),
+				".strongbox_keyring":      []byte("keyring-data-bar"),
+				strongboxIdentityFilename: []byte("AGE-SECRET-KEY-1GNC98E3WNPAXE49FATT434CFC2THV5Q0SLW45T3VNYUVZ4F8TY6SREQR9Q"),
 			},
 		},
 	)
@@ -110,12 +109,11 @@ func Test_secretData(t *testing.T) {
 		identity             []byte
 		wantErr              bool
 	}{
-		{"bar-siv-ok", "bar", secretInfo{name: "argocd-strongbox-secret", key: ".strongbox_keyring"}, []byte("keyring-data-bar"), nil, false},
+		{"bar-siv-ok", "bar", secretInfo{name: "argocd-strongbox-secret"}, []byte("keyring-data-bar"), nil, false},
 		{"age-ok", "age", secretInfo{name: "argocd-voodoobox-strongbox-keyring"}, nil, []byte("AGE-SECRET-KEY-1GNC98E3WNPAXE49FATT434CFC2THV5Q0SLW45T3VNYUVZ4F8TY6SREQR9Q"), false},
-		{"age-and-siv-ok", "age-and-siv", secretInfo{name: "argocd-voodoobox-strongbox-keyring", key: ".strongbox_keyring"}, []byte("keyring-data-bar"), []byte("AGE-SECRET-KEY-1GNC98E3WNPAXE49FATT434CFC2THV5Q0SLW45T3VNYUVZ4F8TY6SREQR9Q"), false},
-		{"foo-wrong-key", "foo", secretInfo{name: "strongbox-secret", key: ".strongbox_keyring"}, nil, nil, false},
-		{"foo-siv-ok", "foo", secretInfo{name: "strongbox-secret", key: "randomKey"}, []byte("keyring-data-foo"), nil, false},
-		{"default-missing", "default", secretInfo{name: "strongbox-secret", key: "randomKey"}, nil, nil, true},
+		{"age-and-siv-ok", "age-and-siv", secretInfo{name: "argocd-voodoobox-strongbox-keyring"}, []byte("keyring-data-bar"), []byte("AGE-SECRET-KEY-1GNC98E3WNPAXE49FATT434CFC2THV5Q0SLW45T3VNYUVZ4F8TY6SREQR9Q"), false},
+		{"foo-wrong-key", "foo", secretInfo{name: "strongbox-secret"}, nil, nil, false},
+		{"default-missing", "default", secretInfo{name: "strongbox-secret"}, nil, nil, true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -150,7 +148,7 @@ func Test_ensureDecryption(t *testing.T) {
 				Namespace: "bar",
 			},
 			Data: map[string][]byte{
-				"keyring": kr,
+				".strongbox_keyring": kr,
 			},
 		},
 		&v1.Secret{
@@ -159,7 +157,7 @@ func Test_ensureDecryption(t *testing.T) {
 				Namespace: "foo",
 			},
 			Data: map[string][]byte{
-				"keyring": kr,
+				".strongbox_keyring": kr,
 			},
 		},
 		&v1.Secret{
@@ -171,7 +169,7 @@ func Test_ensureDecryption(t *testing.T) {
 				},
 			},
 			Data: map[string][]byte{
-				"keyring": kr,
+				".strongbox_keyring": kr,
 			},
 		},
 	)
@@ -183,7 +181,6 @@ func Test_ensureDecryption(t *testing.T) {
 		destinationNamespace: "bar",
 		keyringSecret: secretInfo{
 			name: "strongbox-secret",
-			key:  "keyring",
 		},
 	}
 	t.Run("no-encrypted-files-with-secret", func(t *testing.T) {
@@ -204,7 +201,6 @@ func Test_ensureDecryption(t *testing.T) {
 		destinationNamespace: "foo",
 		keyringSecret: secretInfo{
 			name: "strongbox-secret",
-			key:  "keyring",
 		},
 	}
 	t.Run("encrypted-files-with-secret", func(t *testing.T) {
@@ -239,7 +235,6 @@ func Test_ensureDecryption(t *testing.T) {
 		keyringSecret: secretInfo{
 			namespace: "not-baz",
 			name:      "strongbox-secret",
-			key:       "keyring",
 		},
 	}
 	t.Run("encrypted-files-with-secret-from-diff-ns", func(t *testing.T) {
