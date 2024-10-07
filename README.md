@@ -46,7 +46,7 @@ Plugin supports following _plugin envs_ which can be set in ArgoCD Application c
 Set following envvar:
 
 ```
-- name: STRONGBOX_KEYRING_ENABLED
+- name: STRONGBOX_ENABLED
   value: "true"
 ```
 
@@ -272,7 +272,7 @@ subjects:
 |-|-|-|
 | ARGOCD_APP_NAME | set by argocd | name of application |
 | ARGOCD_APP_NAMESPACE | set by argocd | application's destination namespace |
-| STRONGBOX_KEYRING_ENABLED | "false" | Enable Strongbox for decryption |
+| STRONGBOX_ENABLED | "false" | Enable Strongbox for decryption |
 | STRONGBOX_KEYRING_KEY | .strongbox_keyring | the name of the secret data key which contains a valid strongbox keyring file |
 | STRONGBOX_SECRET_NAMESPACE | | the name of a namespace where secret resource containing strongbox keyring is located, defaults to current |
 | GIT_SSH_CUSTOM_KEY_ENABLED | "false" | Enable Git SSH building using custom (non global) key |
