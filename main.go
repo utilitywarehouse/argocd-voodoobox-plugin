@@ -88,8 +88,9 @@ to get comma-separated list of all the namespaces that are allowed to use it`,
 		Name:    "app-strongbox-enabled",
 		EnvVars: []string{argocdAppEnvPrefix + "STRONGBOX_ENABLED"},
 		Usage: `set 'STRONGBOX_ENABLED' in argocd application as plugin
-		ENV. If set to "true" will use default values to lookup the
+		ENV. If set to "true" (default) will use default values to lookup the
 		Strongbox secret and use it.`,
+		Value: true,
 	},
 	// following envs comes from argocd application resource
 	// strongbox secrets flags
