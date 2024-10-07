@@ -86,7 +86,7 @@ func Test_secretData(t *testing.T) {
 				Namespace: "age",
 			},
 			Data: map[string][]byte{
-				stronboxIdentityFilename: []byte("AGE-SECRET-KEY-1GNC98E3WNPAXE49FATT434CFC2THV5Q0SLW45T3VNYUVZ4F8TY6SREQR9Q"),
+				strongboxIdentityFilename: []byte("AGE-SECRET-KEY-1GNC98E3WNPAXE49FATT434CFC2THV5Q0SLW45T3VNYUVZ4F8TY6SREQR9Q"),
 			},
 		},
 		&v1.Secret{
@@ -95,8 +95,8 @@ func Test_secretData(t *testing.T) {
 				Namespace: "age-and-siv",
 			},
 			Data: map[string][]byte{
-				".strongbox_keyring":     []byte("keyring-data-bar"),
-				stronboxIdentityFilename: []byte("AGE-SECRET-KEY-1GNC98E3WNPAXE49FATT434CFC2THV5Q0SLW45T3VNYUVZ4F8TY6SREQR9Q"),
+				".strongbox_keyring":      []byte("keyring-data-bar"),
+				strongboxIdentityFilename: []byte("AGE-SECRET-KEY-1GNC98E3WNPAXE49FATT434CFC2THV5Q0SLW45T3VNYUVZ4F8TY6SREQR9Q"),
 			},
 		},
 	)

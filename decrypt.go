@@ -17,8 +17,8 @@ import (
 )
 
 const (
-	stronboxIdentityFilename = ".strongbox_identity"
-	stronboxKeyringFilename  = ".strongbox_keyring"
+	strongboxIdentityFilename = ".strongbox_identity"
+	strongboxKeyringFilename  = ".strongbox_keyring"
 )
 
 var (
@@ -48,7 +48,7 @@ func ensureDecryption(ctx context.Context, cwd string, app applicationInfo) erro
 	}
 
 	if identityData != nil {
-		identityPath := filepath.Join(cwd, stronboxIdentityFilename)
+		identityPath := filepath.Join(cwd, strongboxIdentityFilename)
 		if err := os.WriteFile(identityPath, identityData, 0644); err != nil {
 			return err
 		}
@@ -66,7 +66,7 @@ func secretData(ctx context.Context, destinationNamespace string, si secretInfo)
 		return nil, nil, err
 	}
 
-	return secret.Data[stronboxKeyringFilename], secret.Data[stronboxIdentityFilename], nil
+	return secret.Data[strongboxKeyringFilename], secret.Data[strongboxIdentityFilename], nil
 }
 
 // runStrongboxDecryption will try to decrypt files in cwd using given keyRing file
