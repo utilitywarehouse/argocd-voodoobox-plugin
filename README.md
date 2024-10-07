@@ -17,7 +17,7 @@ if multiple keys are used to encrypt app secrets then this secret should contain
 
 To fetch remote base from private repository, admin can add global ssh key which will be used for ALL applications.
 
-user can also provide own ssh keys for an applications via secret with name `argocd-voodoobox-git-ssh`, 
+User can also provide own ssh keys for an applications via secret with name `argocd-voodoobox-git-ssh`,
 that contains one or more SSH keys that provide access to the private repositories that contain these bases. To use an SSH key for Kustomize bases, 
 the bases URL should be defined with the ssh:// scheme in kustomization.yaml and have a `# argocd-voodoobox-plugin: <key_file_name>` comment above it.
 if only 1 ssh key is used for ALL private repos then there is no need to specify this comment. 
@@ -44,6 +44,7 @@ resources:
 Secret name containing Strongbox keyring/identity file MUST be `argocd-voodoobox-strongbox-keyring`.
 
 Key name for keyring MUST be `.strongbox_keyring`
+
 For age, the key name MUST be `.strongbox_identity`.
 
 `STRONGBOX_SECRET_NAMESPACE` If you need to deploy a shared strongbox keyring to use in multiple namespaces, then it can be set by this ENV.
@@ -54,12 +55,12 @@ If this env is not specified then it defaults to the same namespace as the app's
 ```yaml
 # secret example the following secret can be used by namespaces "ns-a", "ns-b" and "ns-c":
 
-# ./strongbox_identity.yaml
+# ./strongbox_identity
 # description: ident1
 # public key: age1ex4ph3ryaathfac0xpjhxk50utn50mtprke7h0vsmdlh6j63q5dsafxehs
 AGE-SECRET-KEY-1GNC98E3WNPAXE49FATT434CFC2THV5Q0SLW45T3VNYUVZ4F8TY6SREQR9Q
 
-# ./strongbox_keyring.yaml
+# ./strongbox_keyring
 keyentries:
 - description: mykey
   key-id: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
@@ -74,9 +75,10 @@ secretGenerator:
     options:
       annotations:
         argocd.voodoobox.plugin.io/allowed-namespaces: "ns-b, ns-c"
+      disableNameSuffixHash: true
     files:
-      - .strongbox_identity.yaml=strongbox_identity.yaml
-      - .strongbox_keyring.yaml=strongbox_keyring.yaml
+      - .strongbox_identity=strongbox_identity
+      - .strongbox_keyring=strongbox_keyring
 ```
 
 ```yaml
