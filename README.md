@@ -39,28 +39,17 @@ resources:
 
 ## Environment Variables
 
-### Strongbox ENVs
+### Strongbox envvars
 
-Plugin supports following _plugin envs_ which can be set in ArgoCD Application crd:
+Secret name containing Strongbox keyring/identity file MUST be `argocd-voodoobox-strongbox-keyring`.
 
-Set following envvar:
+`STRONGBOX_SECRET_KEY` - set a custom "key name" for keyring data. The default value is `.strongbox_keyring`.
 
-```
-- name: STRONGBOX_ENABLED
-  value: "true"
-```
-
-to enable Strongbox decryption for your Namespace.
-
-Secret that contains Strongbox keyring/identity used to encrypt app secrets, must be `argocd-voodoobox-strongbox-keyring`.
-
-`STRONGBOX_SECRET_KEY` the value should be the name of the Secret data key which contains a valid Strongbox keyring file data. The default value is `.strongbox_keyring`
-
-For age, the key must be `.strongbox_identity`.
+For age, the key name MUST be `.strongbox_identity`.
 
 `STRONGBOX_SECRET_NAMESPACE` If you need to deploy a shared strongbox keyring to use in multiple namespaces, then it can be set by this ENV.
 the Secret should have an annotation called "argocd.voodoobox.plugin.io/allowed-namespaces" which contains a comma-separated list of all the namespaces that are allowed to use it.
-Since ArgoCD Application can be used to create a namespace, wild card is not supported in the allow list. it is an exact matching.
+Since ArgoCD Application can be used to create a namespace, wild card is not supported in the allow list. It is an exact match.
 If this env is not specified then it defaults to the same namespace as the app's destination NS.
 
 ```yaml
@@ -99,15 +88,11 @@ spec:
     targetRevision: HEAD
     plugin:
       env:
-        - name: STRONGBOX_ENABLED
-          value: "true"
         - name: STRONGBOX_SECRET_NAMESPACE
           value: team-a
-        - name: STRONGBOX_SECRET_KEY
-          value: .strongbox_keyring
 ```
 
-### Git SSH Keys Envs
+### Git SSH Keys envvars
 
 Set following envvar:
 
@@ -272,7 +257,7 @@ subjects:
 |-|-|-|
 | ARGOCD_APP_NAME | set by argocd | name of application |
 | ARGOCD_APP_NAMESPACE | set by argocd | application's destination namespace |
-| STRONGBOX_ENABLED | "false" | Enable Strongbox for decryption |
+| STRONGBOX_ENABLED | "true" | Enable Strongbox for decryption |
 | STRONGBOX_KEYRING_KEY | .strongbox_keyring | the name of the secret data key which contains a valid strongbox keyring file |
 | STRONGBOX_SECRET_NAMESPACE | | the name of a namespace where secret resource containing strongbox keyring is located, defaults to current |
 | GIT_SSH_CUSTOM_KEY_ENABLED | "false" | Enable Git SSH building using custom (non global) key |
