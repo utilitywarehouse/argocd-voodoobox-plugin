@@ -9,9 +9,9 @@ require (
 	github.com/google/go-cmp v0.6.0
 	github.com/hashicorp/go-hclog v1.6.3
 	github.com/urfave/cli/v2 v2.27.5
-	k8s.io/api v0.31.1
+	k8s.io/api v0.31.2
 	k8s.io/apimachinery v0.31.2
-	k8s.io/client-go v0.31.1
+	k8s.io/client-go v0.31.2
 )
 
 require (
