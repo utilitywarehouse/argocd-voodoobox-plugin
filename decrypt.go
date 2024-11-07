@@ -14,6 +14,7 @@ import (
 
 	"filippo.io/age"
 	"filippo.io/age/armor"
+	kErrors "k8s.io/apimachinery/pkg/api/errors"
 )
 
 const (
@@ -63,6 +64,12 @@ func ensureDecryption(ctx context.Context, cwd string, app applicationInfo) erro
 func secretData(ctx context.Context, destinationNamespace string, si secretInfo) ([]byte, []byte, error) {
 	secret, err := getSecret(ctx, destinationNamespace, si)
 	if err != nil {
+		// If Strongbox Secret is missing - thats okay, assume default
+		// "true" for Strongbox support and Namespace has no Strongbox
+		// Secrets
+		if kErrors.IsNotFound(err) {
+			return nil, nil, nil
+		}
 		return nil, nil, err
 	}
 
