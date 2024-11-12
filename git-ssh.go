@@ -35,7 +35,7 @@ var (
 func setupGitSSH(ctx context.Context, cwd, globalKeyPath, globalKnownHostFile string, app applicationInfo) (string, error) {
 	knownHostsFragment := `-o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no`
 
-	sshDir := filepath.Join(cwd, SSHDirName)
+	sshDir := filepath.Join(cwd, ".ssh")
 	if err := os.Mkdir(sshDir, 0700); err != nil {
 		return "", fmt.Errorf("unable to create ssh config dir err:%s", err)
 	}
@@ -49,7 +49,7 @@ func setupGitSSH(ctx context.Context, cwd, globalKeyPath, globalKnownHostFile st
 
 	// Using own SSH key
 	if app.gitSSHSecret.name != "" {
-		sec, err := getSecret(ctx, app.destinationNamespace, app.gitSSHSecret)
+		sec, err := secret(ctx, app.destinationNamespace, app.gitSSHSecret)
 		if err != nil {
 			return "", err
 		}

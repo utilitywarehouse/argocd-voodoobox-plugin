@@ -41,7 +41,8 @@ resources:
 
 ### Strongbox envvars
 
-Secret name containing Strongbox keyring/identity file MUST be `argocd-voodoobox-strongbox-keyring`.
+Secret name containing Strongbox keyring/identity file MUST be
+`argocd-voodoobox-strongbox-keyring`.
 
 Key name for keyring MUST be `.strongbox_keyring`
 
@@ -238,7 +239,6 @@ subjects:
   - kind: ServiceAccount
     name: argocd-repo-server
     namespace: sys-argocd
-
 ```
 
 ### Plugin Configuration 
@@ -258,7 +258,6 @@ subjects:
 |-|-|-|
 | ARGOCD_APP_NAME | set by argocd | name of application |
 | ARGOCD_APP_NAMESPACE | set by argocd | application's destination namespace |
-| STRONGBOX_ENABLED | "true" | Enable Strongbox for decryption |
 | STRONGBOX_SECRET_NAMESPACE | | the name of a namespace where secret resource containing strongbox keyring is located, defaults to current |
 | GIT_SSH_CUSTOM_KEY_ENABLED | "false" | Enable Git SSH building using custom (non global) key |
 | GIT_SSH_SECRET_NAMESPACE | | the value should be the name of a namespace where secret resource containing ssh keys are located, defaults to current |
