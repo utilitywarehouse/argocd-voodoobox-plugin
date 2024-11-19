@@ -14,9 +14,6 @@ import (
 const (
 	// argocd adds `ARGOCD_ENV_` prefix to all plugin envs configured in Applications
 	argocdAppEnvPrefix = "ARGOCD_ENV_"
-
-	strongboxKeyRingFile = ".strongbox_keyring"
-	SSHDirName           = ".ssh"
 )
 
 var (
@@ -83,14 +80,6 @@ to get comma-separated list of all the namespaces that are allowed to use it`,
 		Value:       "argocd.voodoobox.plugin.io/allowed-namespaces",
 	},
 
-	&cli.BoolFlag{
-		Name:    "app-strongbox-enabled",
-		EnvVars: []string{argocdAppEnvPrefix + "STRONGBOX_ENABLED"},
-		Usage: `set 'STRONGBOX_ENABLED' in argocd application as plugin
-		ENV. If set to "true" (default) will use default values to lookup the
-		Strongbox secret and use it.`,
-		Value: true,
-	},
 	// following envs comes from argocd application resource
 	// strongbox secrets flags
 	&cli.StringFlag{
@@ -167,14 +156,13 @@ func main() {
 						}
 					}
 
-					if c.Bool("app-strongbox-enabled") {
-						app.keyringSecret = secretInfo{
-							name:      c.String("app-strongbox-secret-name"),
-							namespace: c.String("app-strongbox-secret-namespace"),
-						}
-						if err := ensureDecryption(c.Context, cwd, app); err != nil {
-							return err
-						}
+					// Always try to decrypt
+					app.keyringSecret = secretInfo{
+						name:      c.String("app-strongbox-secret-name"),
+						namespace: c.String("app-strongbox-secret-namespace"),
+					}
+					if err := ensureDecryption(c.Context, cwd, app); err != nil {
+						return err
 					}
 
 					manifests, err := ensureBuild(c.Context, cwd, globalKeyPath, globalKnownHostFile, app)
@@ -185,10 +173,10 @@ func main() {
 					// argocd creates a temp folder of plugin which gets deleted
 					// once plugin is existed still clean up secrets manually
 					// in case this behavior changes
-					os.Remove(filepath.Join(cwd, strongboxKeyRingFile))
-					os.RemoveAll(filepath.Join(cwd, SSHDirName))
+					os.Remove(filepath.Join(cwd, strongboxKeyringFilename))
+					os.RemoveAll(filepath.Join(cwd, ".ssh"))
 
-					fmt.Printf("%s\n---\n", manifests)
+					fmt.Printf("%s", manifests)
 					return nil
 				},
 			},

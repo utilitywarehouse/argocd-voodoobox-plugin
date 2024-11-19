@@ -29,15 +29,18 @@ var (
 func ensureDecryption(ctx context.Context, cwd string, app applicationInfo) error {
 	keyringData, identityData, err := secretData(ctx, app.destinationNamespace, app.keyringSecret)
 	if err != nil {
+		if errors.Is(err, errNotFound) {
+			return nil
+		}
 		return err
 	}
 	if keyringData == nil && identityData == nil {
 		return nil
 	}
 
-	// create strongbox keyRing file
+	// create Strongbox keyRing file
 	if keyringData != nil {
-		keyRingPath := filepath.Join(cwd, strongboxKeyRingFile)
+		keyRingPath := filepath.Join(cwd, strongboxKeyringFilename)
 		if err := os.WriteFile(keyRingPath, keyringData, 0644); err != nil {
 			return err
 		}
@@ -61,7 +64,7 @@ func ensureDecryption(ctx context.Context, cwd string, app applicationInfo) erro
 }
 
 func secretData(ctx context.Context, destinationNamespace string, si secretInfo) ([]byte, []byte, error) {
-	secret, err := getSecret(ctx, destinationNamespace, si)
+	secret, err := secret(ctx, destinationNamespace, si)
 	if err != nil {
 		return nil, nil, err
 	}

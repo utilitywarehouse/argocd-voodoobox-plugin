@@ -114,7 +114,7 @@ key: xxxxxxxxx`),
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := getSecret(context.Background(), tt.args.destNamespace, tt.args.secret)
+			got, err := secret(context.Background(), tt.args.destNamespace, tt.args.secret)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("getSecret() error = %v, wantErr %v", err, tt.wantErr)
 				return
