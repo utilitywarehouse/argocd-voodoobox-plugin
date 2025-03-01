@@ -6,7 +6,7 @@ toolchain go1.23.4
 require (
 	filippo.io/age v1.2.1
 	github.com/ghodss/yaml v1.0.0
-	github.com/google/go-cmp v0.6.0
+	github.com/google/go-cmp v0.7.0
 	github.com/hashicorp/go-hclog v1.6.3
 	github.com/urfave/cli/v2 v2.27.5
 	k8s.io/api v0.32.2
