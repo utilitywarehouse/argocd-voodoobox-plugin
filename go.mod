@@ -1,14 +1,14 @@
 module github.com/utilitywarehouse/argocd-voodoobox-plugin
 
 go 1.22.0
-toolchain go1.23.4
+toolchain go1.24.1
 
 require (
 	filippo.io/age v1.2.1
 	github.com/ghodss/yaml v1.0.0
 	github.com/google/go-cmp v0.7.0
 	github.com/hashicorp/go-hclog v1.6.3
-	github.com/urfave/cli/v2 v2.27.5
+	github.com/urfave/cli/v2 v2.27.6
 	k8s.io/api v0.32.2
 	k8s.io/apimachinery v0.32.2
 	k8s.io/client-go v0.32.2
