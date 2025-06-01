@@ -1,6 +1,7 @@
 module github.com/utilitywarehouse/argocd-voodoobox-plugin
 
-go 1.22.0
+go 1.24.0
+
 toolchain go1.24.1
 
 require (
@@ -10,7 +11,7 @@ require (
 	github.com/hashicorp/go-hclog v1.6.3
 	github.com/urfave/cli/v2 v2.27.6
 	k8s.io/api v0.33.0
-	k8s.io/apimachinery v0.33.0
+	k8s.io/apimachinery v0.33.1
 	k8s.io/client-go v0.33.0
 )
 
