@@ -12,7 +12,7 @@ require (
 	github.com/urfave/cli/v2 v2.27.7
 	k8s.io/api v0.33.3
 	k8s.io/apimachinery v0.33.3
-	k8s.io/client-go v0.33.2
+	k8s.io/client-go v0.33.3
 )
 
 require (
