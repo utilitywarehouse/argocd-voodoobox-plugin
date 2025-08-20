@@ -1,7 +1,7 @@
-FROM golang:1.23-alpine AS build
+FROM golang:1.25-alpine AS build
 
 ENV \
-  STRONGBOX_VERSION=2.0.0-RC4 \
+  STRONGBOX_VERSION=2.1.0 \
   KUSTOMIZE_VERSION=v5.5.0
 
 RUN os=$(go env GOOS) && arch=$(go env GOARCH) \
@@ -17,11 +17,11 @@ ADD . /app
 WORKDIR /app
 
 RUN go test -v -cover ./... \
-      && go build -ldflags='-s -w' -o /argocd-voodoobox-plugin .
+      && CGO_ENABLED=0 go build -o /argocd-voodoobox-plugin .
 
 # final stage
 # argocd requires that sidecar container is running as user 999
-FROM alpine:3.20
+FROM alpine:3.22
 
 USER root
 

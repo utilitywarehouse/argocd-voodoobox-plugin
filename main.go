@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/hashicorp/go-hclog"
 	"github.com/urfave/cli/v2"
@@ -22,11 +23,6 @@ var (
 
 	logger = hclog.New(&hclog.LoggerOptions{
 		Name: "argocd-voodoobox-plugin",
-
-		// when plugin commands are executed by repo server
-		// logs are only printed if there is an error while executing a command
-		// logs are ignored if plugin command is executed successfully
-		Level: hclog.Error,
 	})
 )
 
@@ -149,12 +145,17 @@ func main() {
 						destinationNamespace: c.String("app-namespace"),
 					}
 
+					logger = logger.With("app", app.name)
+
 					if c.Bool("app-git-ssh-enabled") {
 						app.gitSSHSecret = secretInfo{
 							name:      c.String("app-git-ssh-secret-name"),
 							namespace: c.String("app-git-ssh-secret-namespace"),
 						}
 					}
+					start := time.Now()
+
+					logger.Info("starting decryption")
 
 					// Always try to decrypt
 					app.keyringSecret = secretInfo{
@@ -162,17 +163,20 @@ func main() {
 						namespace: c.String("app-strongbox-secret-namespace"),
 					}
 					if err := ensureDecryption(c.Context, cwd, app); err != nil {
-						return err
+						return fmt.Errorf("decryption error: duration:%s error:%w", time.Since(start), err)
 					}
+					decryptTime := time.Since(start)
+					logger.Info("starting build", "decryption-duration", decryptTime)
 
 					manifests, err := ensureBuild(c.Context, cwd, globalKeyPath, globalKnownHostFile, app)
 					if err != nil {
-						return err
+						return fmt.Errorf("build error: duration:%s error:%w", time.Since(start), err)
 					}
+					logger.Info("build done", "decryption-duration", decryptTime, "total-duration", time.Since(start))
 
 					// argocd creates a temp folder of plugin which gets deleted
 					// once plugin is existed still clean up secrets manually
-					// in case this behavior changes
+					// in case this behaviour changes
 					os.Remove(filepath.Join(cwd, strongboxKeyringFilename))
 					os.RemoveAll(filepath.Join(cwd, ".ssh"))
 
