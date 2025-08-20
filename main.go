@@ -145,7 +145,7 @@ func main() {
 						destinationNamespace: c.String("app-namespace"),
 					}
 
-					logger = logger.With("app", app.name, "app-namespace", app.destinationNamespace)
+					logger = logger.With("app", app.name)
 
 					if c.Bool("app-git-ssh-enabled") {
 						app.gitSSHSecret = secretInfo{
