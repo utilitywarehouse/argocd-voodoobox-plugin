@@ -9,6 +9,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"filippo.io/age/armor"
 	"github.com/ghodss/yaml"
@@ -129,14 +130,16 @@ func runKustomizeBuild(ctx context.Context, cwd string, env []string) ([]byte, e
 
 	k.Stdout = &stdout
 	k.Stderr = &stderr
-
+	start := time.Now()
 	if err := k.Start(); err != nil {
-		return nil, fmt.Errorf("unable to start kustomize cmd: err=%s", err)
+		return nil, fmt.Errorf("unable to start kustomize cmd:  duration=%s err=%s", time.Since(start), err)
 	}
 
 	if err := k.Wait(); err != nil {
-		return nil, fmt.Errorf("error running kustomize: err=%s", stderr.String())
+		return nil, fmt.Errorf("kustomize command error: duration=%s err=%s", time.Since(start), stderr.String())
 	}
+
+	logger.Info("kustomize command finished", "duration", time.Since(start))
 
 	if err := checkSecrets(stdout.Bytes()); err != nil {
 		return nil, err
