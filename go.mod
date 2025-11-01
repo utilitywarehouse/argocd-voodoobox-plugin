@@ -8,7 +8,7 @@ require (
 	github.com/google/go-cmp v0.7.0
 	github.com/hashicorp/go-hclog v1.6.3
 	github.com/urfave/cli/v2 v2.27.7
-	k8s.io/api v0.35.0-alpha.0
+	k8s.io/api v0.35.0-alpha.2
 	k8s.io/apimachinery v0.35.0-alpha.2
 	k8s.io/client-go v0.35.0-alpha.0
 )
@@ -23,7 +23,6 @@ require (
 	github.com/go-openapi/jsonpointer v0.21.2 // indirect
 	github.com/go-openapi/jsonreference v0.21.0 // indirect
 	github.com/go-openapi/swag v0.23.1 // indirect
-	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/google/gnostic-models v0.7.0 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/josharian/intern v1.0.0 // indirect
