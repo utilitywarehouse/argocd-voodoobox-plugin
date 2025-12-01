@@ -8,13 +8,12 @@ require (
 	github.com/google/go-cmp v0.7.0
 	github.com/hashicorp/go-hclog v1.6.3
 	github.com/urfave/cli/v2 v2.27.7
-	k8s.io/api v0.35.0-alpha.2
+	k8s.io/api v0.35.0-beta.0
 	k8s.io/apimachinery v0.35.0-beta.0
-	k8s.io/client-go v0.35.0-alpha.2
+	k8s.io/client-go v0.35.0-beta.0
 )
 
 require (
-	github.com/Masterminds/semver/v3 v3.4.0 // indirect
 	github.com/cpuguy83/go-md2man/v2 v2.0.7 // indirect
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/emicklei/go-restful/v3 v3.13.0 // indirect
