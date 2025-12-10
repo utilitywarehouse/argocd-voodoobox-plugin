@@ -2,7 +2,7 @@ FROM golang:1.25-alpine AS build
 
 ENV \
   STRONGBOX_VERSION=2.1.0 \
-  KUSTOMIZE_VERSION=v5.5.0
+  KUSTOMIZE_VERSION=v5.7.1
 
 RUN os=$(go env GOOS) && arch=$(go env GOARCH) \
       && apk --no-cache add curl \
@@ -21,7 +21,7 @@ RUN go test -v -cover ./... \
 
 # final stage
 # argocd requires that sidecar container is running as user 999
-FROM alpine:3.22
+FROM alpine:3.23
 
 USER root
 
