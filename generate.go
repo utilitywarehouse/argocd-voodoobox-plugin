@@ -111,9 +111,9 @@ func setupGitConfigForSB(ctx context.Context, cwd string, env []string) error {
 	s.Dir = cwd
 	s.Env = env
 
-	stderr, err := s.CombinedOutput()
+	out, err := s.CombinedOutput()
 	if err != nil {
-		return fmt.Errorf("error running strongbox err:%s ", stderr)
+		return fmt.Errorf("error running strongbox err:%w output:%s", err, out)
 	}
 
 	return nil

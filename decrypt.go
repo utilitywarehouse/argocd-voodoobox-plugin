@@ -76,9 +76,9 @@ func secretData(ctx context.Context, destinationNamespace string, si secretInfo)
 func runStrongboxDecryption(ctx context.Context, cwd, keyringPath string) error {
 	s := exec.CommandContext(ctx, "strongbox", "-keyring", keyringPath, "-decrypt", "-recursive", cwd)
 
-	stderr, err := s.CombinedOutput()
+	out, err := s.CombinedOutput()
 	if err != nil {
-		return fmt.Errorf("error running strongbox err:%s ", stderr)
+		return fmt.Errorf("error running strongbox err:%w output:%s", err, out)
 	}
 
 	return nil
