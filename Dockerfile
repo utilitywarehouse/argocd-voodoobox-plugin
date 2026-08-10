@@ -1,4 +1,4 @@
-FROM golang:1.25-alpine AS build
+FROM golang:1.26-alpine AS build
 
 ENV \
   STRONGBOX_VERSION=2.1.0 \
@@ -21,7 +21,7 @@ RUN go test -v -cover ./... \
 
 # final stage
 # argocd requires that sidecar container is running as user 999
-FROM alpine:3.23
+FROM alpine:3.24
 
 USER root
 
