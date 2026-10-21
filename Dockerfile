@@ -1,23 +1,23 @@
-FROM golang:1.26-alpine AS build
+FROM golang:1.27-alpine AS build
 
 ENV \
-  STRONGBOX_VERSION=2.1.0 \
-  KUSTOMIZE_VERSION=v5.7.1
+    STRONGBOX_VERSION=2.1.0 \
+    KUSTOMIZE_VERSION=v5.7.1
 
 RUN os=$(go env GOOS) && arch=$(go env GOARCH) \
-      && apk --no-cache add curl \
-      && curl -Ls https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize/${KUSTOMIZE_VERSION}/kustomize_${KUSTOMIZE_VERSION}_${os}_${arch}.tar.gz \
-           | tar xz -C /usr/local/bin/ \
-      && chmod +x /usr/local/bin/kustomize \
-      && curl -Ls https://github.com/uw-labs/strongbox/releases/download/v${STRONGBOX_VERSION}/strongbox_${STRONGBOX_VERSION}_${os}_${arch} \
-           > /usr/local/bin/strongbox \
-      && chmod +x /usr/local/bin/strongbox
+    && apk --no-cache add curl \
+    && curl -Ls https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize/${KUSTOMIZE_VERSION}/kustomize_${KUSTOMIZE_VERSION}_${os}_${arch}.tar.gz \
+    | tar xz -C /usr/local/bin/ \
+    && chmod +x /usr/local/bin/kustomize \
+    && curl -Ls https://github.com/uw-labs/strongbox/releases/download/v${STRONGBOX_VERSION}/strongbox_${STRONGBOX_VERSION}_${os}_${arch} \
+    > /usr/local/bin/strongbox \
+    && chmod +x /usr/local/bin/strongbox
 
 ADD . /app
 WORKDIR /app
 
 RUN go test -v -cover ./... \
-      && CGO_ENABLED=0 go build -o /argocd-voodoobox-plugin .
+    && CGO_ENABLED=0 go build -o /argocd-voodoobox-plugin .
 
 # final stage
 # argocd requires that sidecar container is running as user 999
@@ -28,13 +28,13 @@ USER root
 ENV ARGOCD_USER_ID=999
 
 RUN adduser -S -H -u $ARGOCD_USER_ID argocd \
-      && apk --no-cache add git openssh-client git-lfs
+    && apk --no-cache add git openssh-client git-lfs
 
 COPY --from=build \
-  /usr/local/bin/kustomize \
-  /usr/local/bin/strongbox \
-  /argocd-voodoobox-plugin \
-  /usr/local/bin/
+    /usr/local/bin/kustomize \
+    /usr/local/bin/strongbox \
+    /argocd-voodoobox-plugin \
+    /usr/local/bin/
 
 ENV USER=argocd
 USER $ARGOCD_USER_ID
