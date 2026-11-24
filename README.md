@@ -129,6 +129,38 @@ stringData:
     github.com ssh-rsa AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==
 ```
 
+### GitHub token
+
+Instead of the global SSH key you can give the plugin a GitHub token to fetch
+remote private bases. `ssh://` base URLs keep working: when git runs, the
+plugin rewrites them to `https` and answers the credential request with the
+token, so no kustomization file needs to change.
+
+```yaml
+# plugin container
+env:
+  - name: AVP_GLOBAL_GIT_TOKEN_FILE
+    value: /etc/github/token
+volumeMounts:
+  - name: github-token
+    mountPath: /etc/github
+# pod
+volumes:
+  - name: github-token
+    secret:
+      secretName: argocd-voodoobox-git-token
+```
+
+The plugin reads the token file on every git call, so a rotated token is picked
+up without a restart. If the file is missing, bases that need authentication
+fail when git fetches them, while public bases still build.
+
+Precedence:
+
+1. a key referenced from a kustomization file (`# argocd-voodoobox-plugin: key_foo`)
+2. the global token (`--global-git-token-file`)
+3. the global SSH key (`--global-git-ssh-key-file`), ignored when a token is set
+
 ## Configuration and Installation plugin via sidecar 
 for more details please see [argocd-docs](https://argo-cd.readthedocs.io/en/latest/user-guide/config-management-plugins/#option-2-configure-plugin-via-sidecar).
 
@@ -249,6 +281,7 @@ subjects:
 | --allowed-namespaces-secret-annotation | argocd.voodoobox.plugin.io/allowed-namespaces | when shared secret is used this value is the annotation key to look for in secret to get comma-separated list of all the namespaces that are allowed to use it |
 | --global-git-ssh-key-file | | The path to git ssh key file which will be used as global ssh key to fetch kustomize base from private repo for all application |
 | --global-git-ssh-known-hosts-file | | The path to git known hosts file which will be used as with global ssh key to fetch kustomize base from private repo for all application |
+| --global-git-token-file | | The path to a GitHub token file used to fetch kustomize bases from private repos over https. When set, it replaces the global ssh key; keys referenced from a kustomization file still take precedence |
 | --app-strongbox-secret-name | argocd-voodoobox-strongbox-keyring | the value should be the name of a secret resource containing strongbox keyring used to encrypt app secrets. name will be same across all applications |
 | --app-git-ssh-secret-name | argocd-voodoobox-git-ssh | the value should be the name of a secret resource containing ssh keys used for fetching remote kustomize bases from private repositories. name will be same across all applications |
 

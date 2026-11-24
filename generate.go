@@ -16,7 +16,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 )
 
-func ensureBuild(ctx context.Context, cwd, globalKeyPath, globalKnownHostFile string, app applicationInfo) ([]byte, error) {
+func ensureBuild(ctx context.Context, cwd, globalKeyPath, globalKnownHostFile, globalTokenFile string, app applicationInfo) ([]byte, error) {
 	// Even when there is no git SSH secret defined, we still override the
 	// Git SSH command (pointing the key to /dev/null) in order to avoid
 	// using SSH keys in default system locations and to surface the error
@@ -37,13 +37,6 @@ func ensureBuild(ctx context.Context, cwd, globalKeyPath, globalKnownHostFile st
 		return nil, fmt.Errorf("unable to look for SSH protocol err:%s", err)
 	}
 
-	if hasRemoteBase {
-		sshCmdEnv, err = setupGitSSH(ctx, cwd, globalKeyPath, globalKnownHostFile, app)
-		if err != nil {
-			return nil, err
-		}
-	}
-
 	// setup env for Kustomize command
 	env := []string{
 		// Set HOME to cwd, this means that SSH should not pick up any
@@ -51,6 +44,26 @@ func ensureBuild(ctx context.Context, cwd, globalKeyPath, globalKnownHostFile st
 		// HOME is also used to setup git config in current dir
 		fmt.Sprintf("HOME=%s", cwd),
 		fmt.Sprintf("PATH=%s", os.Getenv("PATH")),
+	}
+
+	if hasRemoteBase {
+		// A token takes over from the global SSH key: its rewrite rules move
+		// ssh:// bases to https, so the key would never be used. A key named in
+		// a kustomization file still wins, because those bases keep their own
+		// fake host.
+		if globalTokenFile != "" {
+			globalKeyPath = ""
+			env = append(env, gitTokenEnv(globalTokenFile)...)
+		}
+
+		// Write an ssh config only when there is a key to go in it, a token
+		// authenticates over https instead.
+		if globalKeyPath != "" || app.gitSSHSecret.name != "" {
+			sshCmdEnv, err = setupGitSSH(ctx, cwd, globalKeyPath, globalKnownHostFile, app)
+			if err != nil {
+				return nil, err
+			}
+		}
 	}
 
 	env = append(env, sshCmdEnv)

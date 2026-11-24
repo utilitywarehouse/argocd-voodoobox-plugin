@@ -68,6 +68,11 @@ var flags = []cli.Flag{
 		Usage:   "The path to git known hosts file which will be used as with global ssh key to fetch kustomize base from private repo for all application",
 	},
 	&cli.StringFlag{
+		Name:    "global-git-token-file",
+		EnvVars: []string{"AVP_GLOBAL_GIT_TOKEN_FILE"},
+		Usage:   "The path to a GitHub token file for fetching private kustomize bases over https. When set, it replaces the global SSH key. A key named in a kustomization file still wins",
+	},
+	&cli.StringFlag{
 		Name:    "allowed-namespaces-secret-annotation",
 		EnvVars: []string{"AVP_ALLOWED_NS_SECRET_ANNOTATION"},
 		Usage: `when shared secret is used this value is the annotation key to look for in secret 
@@ -139,6 +144,7 @@ func main() {
 
 					globalKeyPath := c.String("global-git-ssh-key-file")
 					globalKnownHostFile := c.String("global-git-ssh-known-hosts-file")
+					globalTokenFile := c.String("global-git-token-file")
 
 					app := applicationInfo{
 						name:                 c.String("app-name"),
@@ -168,7 +174,7 @@ func main() {
 					decryptTime := time.Since(start)
 					logger.Info("starting build", "decryption-duration", decryptTime)
 
-					manifests, err := ensureBuild(c.Context, cwd, globalKeyPath, globalKnownHostFile, app)
+					manifests, err := ensureBuild(c.Context, cwd, globalKeyPath, globalKnownHostFile, globalTokenFile, app)
 					if err != nil {
 						return fmt.Errorf("build error: duration:%s error:%w", time.Since(start), err)
 					}
