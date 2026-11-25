@@ -184,8 +184,9 @@ The token asks for `contents: read` only. That means the App can carry more
 permissions for other consumers — ArgoCD, for example — without handing them to
 kustomize. Installation tokens last an hour; the plugin keeps one in its temp
 directory until shortly before it expires, so builds within the hour reuse one
-token, and a still-valid token carries builds through a GitHub outage. The only
-secret to rotate is the App private key.
+token, and a still-valid token carries builds through a GitHub outage. If
+GitHub rejects a minted token, git tells the plugin to discard it, so the next
+build mints another. The only secret to rotate is the App private key.
 
 The App settings and `--global-git-token-file` are mutually exclusive.
 

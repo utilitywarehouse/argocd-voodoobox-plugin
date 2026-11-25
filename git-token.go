@@ -16,13 +16,32 @@ import (
 // Git reads the file only when it asks for credentials. That means public
 // repos keep building when the file is missing or empty, and a rotated token
 // is picked up on the next call.
-func gitTokenEnv(tokenFile string) []string {
-	// Git calls the helper for every credential action, but only "get" needs
-	// an answer. Quote the path because the helper runs through sh.
-	helper := fmt.Sprintf(
-		`!f() { test "$1" = get || return 0; echo username=x-access-token; echo "password=$(cat %s)"; }; f`,
-		shellQuote(tokenFile),
-	)
+//
+// discardOnReject deletes the file when git reports the token was rejected, so
+// a token the plugin minted is replaced on the next build. A mounted token file
+// is left alone: the plugin cannot replace it.
+func gitTokenEnv(tokenFile string, discardOnReject bool) []string {
+	// Quote the path because the helper runs through sh.
+	quoted := shellQuote(tokenFile)
+
+	erase := ""
+	if discardOnReject {
+		// Git sends the rejected credential on stdin, so only delete the file
+		// when it still holds that token: another build may have replaced it.
+		erase = fmt.Sprintf(`
+erase)
+	t=%s
+	while IFS= read -r l; do case "$l" in password=*) p="${l#password=}";; esac; done
+	if [ "$p" = "$(cat "$t" 2>/dev/null)" ]; then rm -f "$t"; fi
+;;`, quoted)
+	}
+
+	helper := fmt.Sprintf(`!f() { case "$1" in
+get)
+	echo username=x-access-token
+	echo "password=$(cat %s)"
+;;%s
+esac; }; f`, quoted, erase)
 
 	config := [][2]string{
 		{"url.https://github.com/.insteadOf", "github.com:"},

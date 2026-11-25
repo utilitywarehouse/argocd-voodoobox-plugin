@@ -97,7 +97,7 @@ func ensureBuild(ctx context.Context, cwd string, auth gitAuth, app applicationI
 		// fake host.
 		if tokenFile != "" {
 			globalKeyPath = ""
-			env = append(env, gitTokenEnv(tokenFile)...)
+			env = append(env, gitTokenEnv(tokenFile, auth.appID != "")...)
 		}
 
 		// Write an ssh config only when there is a key to go in it, a token
