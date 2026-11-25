@@ -155,10 +155,44 @@ The plugin reads the token file on every git call, so a rotated token is picked
 up without a restart. If the file is missing, bases that need authentication
 fail when git fetches them, while public bases still build.
 
+### GitHub App
+
+The plugin can mint its own token from a GitHub App installation, so there is
+no token file to rotate. Point it at the App ID, installation ID and private
+key:
+
+```yaml
+# plugin container
+env:
+  - name: AVP_GLOBAL_GIT_APP_ID
+    value: "123456"
+  - name: AVP_GLOBAL_GIT_APP_INSTALLATION_ID
+    value: "7891011"
+  - name: AVP_GLOBAL_GIT_APP_PRIVATE_KEY_FILE
+    value: /etc/github-app/app.pem
+volumeMounts:
+  - name: github-app
+    mountPath: /etc/github-app
+# pod
+volumes:
+  - name: github-app
+    secret:
+      secretName: argocd-voodoobox-github-app
+```
+
+The token asks for `contents: read` only. That means the App can carry more
+permissions for other consumers — ArgoCD, for example — without handing them to
+kustomize. Installation tokens last an hour; the plugin keeps one in its temp
+directory until shortly before it expires, so builds within the hour reuse one
+token, and a still-valid token carries builds through a GitHub outage. The only
+secret to rotate is the App private key.
+
+The App settings and `--global-git-token-file` are mutually exclusive.
+
 Precedence:
 
 1. a key referenced from a kustomization file (`# argocd-voodoobox-plugin: key_foo`)
-2. the global token (`--global-git-token-file`)
+2. a global token, from the GitHub App or `--global-git-token-file`
 3. the global SSH key (`--global-git-ssh-key-file`), ignored when a token is set
 
 ## Configuration and Installation plugin via sidecar 
@@ -282,6 +316,9 @@ subjects:
 | --global-git-ssh-key-file | | The path to git ssh key file which will be used as global ssh key to fetch kustomize base from private repo for all application |
 | --global-git-ssh-known-hosts-file | | The path to git known hosts file which will be used as with global ssh key to fetch kustomize base from private repo for all application |
 | --global-git-token-file | | The path to a GitHub token file used to fetch kustomize bases from private repos over https. When set, it replaces the global ssh key; keys referenced from a kustomization file still take precedence |
+| --global-git-app-id | | The GitHub App ID used to mint tokens for private kustomize bases over https; set it with the installation ID and private key |
+| --global-git-app-installation-id | | The GitHub App installation ID, paired with `--global-git-app-id` |
+| --global-git-app-private-key-file | | The path to the GitHub App private key in PEM format, paired with `--global-git-app-id` |
 | --app-strongbox-secret-name | argocd-voodoobox-strongbox-keyring | the value should be the name of a secret resource containing strongbox keyring used to encrypt app secrets. name will be same across all applications |
 | --app-git-ssh-secret-name | argocd-voodoobox-git-ssh | the value should be the name of a secret resource containing ssh keys used for fetching remote kustomize bases from private repositories. name will be same across all applications |
 

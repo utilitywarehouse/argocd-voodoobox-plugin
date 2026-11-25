@@ -5,6 +5,7 @@ go 1.27.3
 require (
 	filippo.io/age v1.3.2
 	github.com/ghodss/yaml v1.0.0
+	github.com/go-jose/go-jose/v4 v4.1.3
 	github.com/google/go-cmp v0.7.0
 	github.com/hashicorp/go-hclog v1.6.3
 	github.com/urfave/cli/v2 v2.27.7
