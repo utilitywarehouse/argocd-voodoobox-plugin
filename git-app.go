@@ -45,6 +45,7 @@ func gitAppTokenFile(ctx context.Context, auth gitAuth) (string, error) {
 		age = time.Since(info.ModTime())
 	}
 	if age < installationTokenLifetime-gitAppTokenRefreshMargin {
+		logger.Info("using cached github app token", "age", age.Round(time.Second))
 		return path, nil
 	}
 
@@ -52,11 +53,12 @@ func gitAppTokenFile(ctx context.Context, auth gitAuth) (string, error) {
 	if err != nil {
 		// A still-valid token keeps builds running through a GitHub outage.
 		if age < installationTokenLifetime {
-			logger.Warn("using cached github app token", "err", err)
+			logger.Info("app token fetch failed, using cached github app token", "err", err, "age", age.Round(time.Second))
 			return path, nil
 		}
 		return "", err
 	}
+	logger.Info("minted a github app token")
 
 	return path, writeFileAtomic(path, []byte(token))
 }
