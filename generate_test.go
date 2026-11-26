@@ -1,6 +1,12 @@
 package main
 
-import "testing"
+import (
+	"context"
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+)
 
 func TestHasSSHRemoteBaseURL(t *testing.T) {
 	type args struct {
@@ -118,4 +124,46 @@ data:
 			t.Error("Expected error due to AGE header, but got nil")
 		}
 	})
+}
+
+func Test_ensureBuild_httpsBaseGetsToken(t *testing.T) {
+	cwd := t.TempDir()
+	kustomization := `resources:
+  - https://github.com/utilitywarehouse/private-repo//manifests?ref=main
+`
+	if err := os.WriteFile(filepath.Join(cwd, "kustomization.yaml"), []byte(kustomization), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	tokenFile := filepath.Join(t.TempDir(), "token")
+	if err := os.WriteFile(tokenFile, []byte("ghs_ABC123"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	// The point of this test is the environment git inherits, not the build
+	// itself, so stand in a kustomize that prints its environment.
+	binDir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(binDir, "kustomize"), []byte("#!/bin/sh\nenv\n"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", binDir+string(os.PathListSeparator)+os.Getenv("PATH"))
+
+	got, err := ensureBuild(context.Background(), cwd, gitAuth{tokenFile: tokenFile}, applicationInfo{})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// An https base needs credentials even though it has no ssh:// prefix.
+	for _, want := range []string{
+		"GIT_CONFIG_COUNT=5",
+		"GIT_CONFIG_KEY_0=url.https://github.com/.insteadOf",
+		"GIT_CONFIG_VALUE_0=github.com:",
+		"GIT_CONFIG_VALUE_4=!f() {",
+		// No key was configured, so the build keeps the deny-all ssh command.
+		"GIT_SSH_COMMAND=ssh -q -F none",
+	} {
+		if !strings.Contains(string(got), want) {
+			t.Errorf("kustomize environment missing %q:\n%s", want, got)
+		}
+	}
 }

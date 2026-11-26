@@ -78,35 +78,37 @@ func ensureBuild(ctx context.Context, cwd string, auth gitAuth, app applicationI
 		fmt.Sprintf("PATH=%s", os.Getenv("PATH")),
 	}
 
-	if hasRemoteBase {
-		globalKeyPath := auth.sshKeyFile
-
-		// Both token sources end up as a file, so git needs one config for
-		// either of them.
-		tokenFile := auth.tokenFile
-		if auth.appID != "" {
-			tokenFile, err = gitAppTokenFile(ctx, auth)
-			if err != nil {
-				return nil, fmt.Errorf("unable to get GitHub App token err:%w", err)
-			}
+	tokenFile := auth.tokenFile
+	globalKeyPath := auth.sshKeyFile
+	// Both token sources end up as a file, so git needs one config for either
+	// of them. The token is set up for every base shape: kustomize strips the
+	// scheme from ssh:// URLs but leaves https and scp-style ones alone, and
+	// git only runs the credential helper when a fetch asks for credentials.
+	if auth.appID != "" {
+		tokenFile, err = gitAppTokenFile(ctx, auth)
+		if err != nil {
+			// Apps with only local or public bases do not need a token, so
+			// carry on and let git report the failure if one asks for it.
+			logger.Error("unable to get GitHub App token", "err", err)
+			tokenFile = ""
 		}
-
+	}
+	if tokenFile != "" {
+		env = append(env, gitTokenEnv(tokenFile, auth.appID != "")...)
 		// A token takes over from the global SSH key: its rewrite rules move
 		// ssh:// bases to https, so the key would never be used. A key named in
 		// a kustomization file still wins, because those bases keep their own
 		// fake host.
-		if tokenFile != "" {
-			globalKeyPath = ""
-			env = append(env, gitTokenEnv(tokenFile, auth.appID != "")...)
-		}
+		globalKeyPath = ""
+	}
 
-		// Write an ssh config only when there is a key to go in it, a token
-		// authenticates over https instead.
-		if globalKeyPath != "" || app.gitSSHSecret.name != "" {
-			sshCmdEnv, err = setupGitSSH(ctx, cwd, globalKeyPath, auth.knownHostsFile, app)
-			if err != nil {
-				return nil, err
-			}
+	// Write an ssh config only when there is a key to go in it: a token
+	// authenticates over https instead, and a key named in a kustomization
+	// still needs its own host entry.
+	if hasRemoteBase && (globalKeyPath != "" || app.gitSSHSecret.name != "") {
+		sshCmdEnv, err = setupGitSSH(ctx, cwd, globalKeyPath, auth.knownHostsFile, app)
+		if err != nil {
+			return nil, err
 		}
 	}
 
