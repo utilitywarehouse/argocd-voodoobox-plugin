@@ -16,7 +16,39 @@ import (
 	v1 "k8s.io/api/core/v1"
 )
 
-func ensureBuild(ctx context.Context, cwd, globalKeyPath, globalKnownHostFile string, app applicationInfo) ([]byte, error) {
+// gitAuth is the admin-configured way to reach private GitHub repos when
+// kustomize fetches a remote base.
+type gitAuth struct {
+	sshKeyFile     string
+	knownHostsFile string
+	tokenFile      string
+	appID          string
+	installationID string
+	appKeyFile     string
+}
+
+// validate rejects partial App settings and two token sources at once, so a
+// typo fails every build with a clear message instead of a 401.
+func (a gitAuth) validate() error {
+	appFields := 0
+	for _, v := range []string{a.appID, a.installationID, a.appKeyFile} {
+		if v != "" {
+			appFields++
+		}
+	}
+
+	if appFields != 0 && appFields != 3 {
+		return fmt.Errorf("global-git-app-id, global-git-app-installation-id and global-git-app-private-key-file must be set together")
+	}
+
+	if appFields == 3 && a.tokenFile != "" {
+		return fmt.Errorf("global-git-app-id and global-git-token-file are mutually exclusive")
+	}
+
+	return nil
+}
+
+func ensureBuild(ctx context.Context, cwd string, auth gitAuth, app applicationInfo) ([]byte, error) {
 	// Even when there is no git SSH secret defined, we still override the
 	// Git SSH command (pointing the key to /dev/null) in order to avoid
 	// using SSH keys in default system locations and to surface the error
@@ -37,13 +69,6 @@ func ensureBuild(ctx context.Context, cwd, globalKeyPath, globalKnownHostFile st
 		return nil, fmt.Errorf("unable to look for SSH protocol err:%s", err)
 	}
 
-	if hasRemoteBase {
-		sshCmdEnv, err = setupGitSSH(ctx, cwd, globalKeyPath, globalKnownHostFile, app)
-		if err != nil {
-			return nil, err
-		}
-	}
-
 	// setup env for Kustomize command
 	env := []string{
 		// Set HOME to cwd, this means that SSH should not pick up any
@@ -51,6 +76,40 @@ func ensureBuild(ctx context.Context, cwd, globalKeyPath, globalKnownHostFile st
 		// HOME is also used to setup git config in current dir
 		fmt.Sprintf("HOME=%s", cwd),
 		fmt.Sprintf("PATH=%s", os.Getenv("PATH")),
+	}
+
+	tokenFile := auth.tokenFile
+	globalKeyPath := auth.sshKeyFile
+	// Both token sources end up as a file, so git needs one config for either
+	// of them. The token is set up for every base shape: kustomize strips the
+	// scheme from ssh:// URLs but leaves https and scp-style ones alone, and
+	// git only runs the credential helper when a fetch asks for credentials.
+	if auth.appID != "" {
+		tokenFile, err = gitAppTokenFile(ctx, auth)
+		if err != nil {
+			// Apps with only local or public bases do not need a token, so
+			// carry on and let git report the failure if one asks for it.
+			logger.Error("unable to get GitHub App token", "err", err)
+			tokenFile = ""
+		}
+	}
+	if tokenFile != "" {
+		env = append(env, gitTokenEnv(tokenFile, auth.appID != "")...)
+		// A token takes over from the global SSH key: its rewrite rules move
+		// ssh:// bases to https, so the key would never be used. A key named in
+		// a kustomization file still wins, because those bases keep their own
+		// fake host.
+		globalKeyPath = ""
+	}
+
+	// Write an ssh config only when there is a key to go in it: a token
+	// authenticates over https instead, and a key named in a kustomization
+	// still needs its own host entry.
+	if hasRemoteBase && (globalKeyPath != "" || app.gitSSHSecret.name != "") {
+		sshCmdEnv, err = setupGitSSH(ctx, cwd, globalKeyPath, auth.knownHostsFile, app)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	env = append(env, sshCmdEnv)

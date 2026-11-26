@@ -68,6 +68,26 @@ var flags = []cli.Flag{
 		Usage:   "The path to git known hosts file which will be used as with global ssh key to fetch kustomize base from private repo for all application",
 	},
 	&cli.StringFlag{
+		Name:    "global-git-token-file",
+		EnvVars: []string{"AVP_GLOBAL_GIT_TOKEN_FILE"},
+		Usage:   "The path to a GitHub token file for fetching private kustomize bases over https. When set, it replaces the global SSH key. A key named in a kustomization file still wins",
+	},
+	&cli.StringFlag{
+		Name:    "global-git-app-id",
+		EnvVars: []string{"AVP_GLOBAL_GIT_APP_ID"},
+		Usage:   "The GitHub App ID used to mint tokens for private kustomize bases over https. Set it together with the installation ID and the private key",
+	},
+	&cli.StringFlag{
+		Name:    "global-git-app-installation-id",
+		EnvVars: []string{"AVP_GLOBAL_GIT_APP_INSTALLATION_ID"},
+		Usage:   "The GitHub App installation ID, paired with --global-git-app-id",
+	},
+	&cli.StringFlag{
+		Name:    "global-git-app-private-key-file",
+		EnvVars: []string{"AVP_GLOBAL_GIT_APP_PRIVATE_KEY_FILE"},
+		Usage:   "The path to the GitHub App private key in PEM format, paired with --global-git-app-id",
+	},
+	&cli.StringFlag{
 		Name:    "allowed-namespaces-secret-annotation",
 		EnvVars: []string{"AVP_ALLOWED_NS_SECRET_ANNOTATION"},
 		Usage: `when shared secret is used this value is the annotation key to look for in secret 
@@ -137,8 +157,17 @@ func main() {
 						return fmt.Errorf("unable to create kube clienset err:%s", err)
 					}
 
-					globalKeyPath := c.String("global-git-ssh-key-file")
-					globalKnownHostFile := c.String("global-git-ssh-known-hosts-file")
+					auth := gitAuth{
+						sshKeyFile:     c.String("global-git-ssh-key-file"),
+						knownHostsFile: c.String("global-git-ssh-known-hosts-file"),
+						tokenFile:      c.String("global-git-token-file"),
+						appID:          c.String("global-git-app-id"),
+						installationID: c.String("global-git-app-installation-id"),
+						appKeyFile:     c.String("global-git-app-private-key-file"),
+					}
+					if err := auth.validate(); err != nil {
+						return err
+					}
 
 					app := applicationInfo{
 						name:                 c.String("app-name"),
@@ -168,7 +197,7 @@ func main() {
 					decryptTime := time.Since(start)
 					logger.Info("starting build", "decryption-duration", decryptTime)
 
-					manifests, err := ensureBuild(c.Context, cwd, globalKeyPath, globalKnownHostFile, app)
+					manifests, err := ensureBuild(c.Context, cwd, auth, app)
 					if err != nil {
 						return fmt.Errorf("build error: duration:%s error:%w", time.Since(start), err)
 					}
